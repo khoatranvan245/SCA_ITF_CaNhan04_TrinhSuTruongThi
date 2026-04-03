@@ -1,4 +1,63 @@
+import { useState } from "react";
+
 const RecruiterSignUp = () => {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [companyName, setCompanyName] = useState("");
+  const [companyLocation, setCompanyLocation] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+
+    try {
+      const response = await fetch(
+        "http://localhost:3000/api/auth/recruiter-signup",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email,
+            password,
+            confirmPassword,
+            companyName,
+            companyLocation,
+          }),
+        },
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.message || "Sign up failed");
+        return;
+      }
+
+      setSuccess(true);
+      setEmail("");
+      setPassword("");
+      setConfirmPassword("");
+      setCompanyName("");
+      setCompanyLocation("");
+      setTimeout(() => {
+        // Redirect to login or recruiter dashboard
+        window.location.href = "/recruiter-login";
+      }, 2000);
+    } catch (err) {
+      setError("An error occurred. Please try again.");
+      console.error("Sign up error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="bg-background text-on-background min-h-screen flex flex-col">
       {/* TopNavBar Suppression: Hidden for transactional page --> */}
@@ -23,7 +82,17 @@ const RecruiterSignUp = () => {
                 Build your talent network and find your next star hire.
               </p>
             </div>
-            <form className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {error && (
+                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-xl">
+                  {error}
+                </div>
+              )}
+              {success && (
+                <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-xl">
+                  Sign up successful! Redirecting to login...
+                </div>
+              )}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Email Field - Full width row --> */}
                 <div className="md:col-span-2">
@@ -34,6 +103,9 @@ const RecruiterSignUp = () => {
                     className="w-full bg-surface-container-highest border-none rounded-xl px-4 py-3 focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary-fixed transition-all outline-none"
                     placeholder="name@company.com"
                     type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
                   />
                 </div>
                 {/* Password Fields - Side-by-side row --> */}
@@ -45,6 +117,9 @@ const RecruiterSignUp = () => {
                     className="w-full bg-surface-container-highest border-none rounded-xl px-4 py-3 focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary-fixed transition-all outline-none"
                     placeholder="••••••••"
                     type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
                   />
                 </div>
                 <div>
@@ -55,6 +130,9 @@ const RecruiterSignUp = () => {
                     className="w-full bg-surface-container-highest border-none rounded-xl px-4 py-3 focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary-fixed transition-all outline-none"
                     placeholder="••••••••"
                     type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
                   />
                 </div>
                 {/* Company Info - Side-by-side row --> */}
@@ -66,14 +144,22 @@ const RecruiterSignUp = () => {
                     className="w-full bg-surface-container-highest border-none rounded-xl px-4 py-3 focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary-fixed transition-all outline-none"
                     placeholder="e.g. Acme Corp"
                     type="text"
+                    value={companyName}
+                    onChange={(e) => setCompanyName(e.target.value)}
+                    required
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-bold tracking-widest text-secondary uppercase mb-2">
                     Company Location
                   </label>
-                  <select className="w-full bg-surface-container-highest border-none rounded-xl px-4 py-3 focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary-fixed transition-all outline-none appearance-none cursor-pointer">
-                    <option disabled selected value="">
+                  <select
+                    className="w-full bg-surface-container-highest border-none rounded-xl px-4 py-3 focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary-fixed transition-all outline-none appearance-none cursor-pointer"
+                    value={companyLocation}
+                    onChange={(e) => setCompanyLocation(e.target.value)}
+                    required
+                  >
+                    <option value="" disabled>
                       Select a location
                     </option>
                     <option value="new-york">New York, NY</option>
@@ -85,10 +171,11 @@ const RecruiterSignUp = () => {
               </div>
               <div className="pt-4">
                 <button
-                  className="w-full bg-primary text-on-primary font-bold py-4 rounded-xl hover:opacity-90 transition-all flex items-center justify-center gap-2 group"
+                  className="w-full bg-primary text-on-primary font-bold py-4 rounded-xl hover:opacity-90 transition-all flex items-center justify-center gap-2 group disabled:opacity-50 disabled:cursor-not-allowed"
                   type="submit"
+                  disabled={loading}
                 >
-                  Get Started
+                  {loading ? "Getting Started..." : "Get Started"}
                   <span className="material-symbols-outlined text-lg group-hover:translate-x-1 transition-transform">
                     arrow_forward
                   </span>
