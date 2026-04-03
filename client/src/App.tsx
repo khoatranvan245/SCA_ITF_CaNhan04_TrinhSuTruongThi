@@ -1,6 +1,6 @@
-import JobManagement from "./pages/JobManagement";
+import RecruiterSignUp from "./pages/RecruiterSignUp";
 
 const App = () => {
-  return <JobManagement />;
+  return <RecruiterSignUp />;
 };
 export default App;
