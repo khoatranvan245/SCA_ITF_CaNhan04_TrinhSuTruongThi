@@ -175,3 +175,65 @@ export const recruiterSignup = async (req: Request, res: Response) => {
       .json({ message: "Internal server error", error: errorMessage });
   }
 };
+
+// Login controller
+export const login = async (req: Request, res: Response) => {
+  try {
+    // Ensure connection is established
+    await prisma.$connect();
+
+    const { email, password } = req.body;
+
+    // Validation
+    if (!email || !password) {
+      res.status(400).json({ message: "Email and password are required" });
+      return;
+    }
+
+    // Find user by email
+    const user = await prisma.user.findUnique({
+      where: { email },
+      include: {
+        role: true,
+      },
+    });
+
+    if (!user) {
+      res.status(401).json({ message: "Invalid email or password" });
+      return;
+    }
+
+    // Verify password
+    const passwordHash = hashPassword(password);
+    if (user.password_hash !== passwordHash) {
+      res.status(401).json({ message: "Invalid email or password" });
+      return;
+    }
+
+    // If recruiter, also fetch their company
+    let company = null;
+    if (user.role_id === 2) {
+      company = await prisma.company.findFirst({
+        where: { user_id: user.user_id },
+      });
+    }
+
+    res.status(200).json({
+      message: "Login successful",
+      user: {
+        user_id: user.user_id,
+        email: user.email,
+        role: user.role,
+      },
+      company: company,
+    });
+  } catch (error) {
+    console.error("Login error:", error);
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
+    console.error("Error details:", errorMessage);
+    res
+      .status(500)
+      .json({ message: "Internal server error", error: errorMessage });
+  }
+};

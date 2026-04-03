@@ -1,120 +1,172 @@
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+
 const CandidateLogin = () => {
+  const navigate = useNavigate();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+
+    try {
+      const response = await fetch("http://localhost:3000/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+          password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.message || "Login failed");
+        return;
+      }
+
+      // Store token/user info in localStorage
+      localStorage.setItem("user", JSON.stringify(data.user));
+      localStorage.setItem("token", data.user.user_id);
+
+      setEmail("");
+      setPassword("");
+      setTimeout(() => {
+        // Redirect to job listing after successful login
+        navigate("/job-listing");
+      }, 1000);
+    } catch (err) {
+      setError("An error occurred. Please try again.");
+      console.error("Login error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className="bg-background text-on-surface font-body min-h-screen flex flex-col items-center justify-center p-6 selection:bg-secondary-container selection:text-on-secondary-container">
-      {/* Brand Identity Anchor */}
-      <header className="mb-12">
-        <h1 className="text-5xl font-extrabold tracking-tighter text-primary font-headline">
-          JobNest
-        </h1>
-      </header>
-      {/* Main Login Canvas */}
-      <main className="w-full max-w-120">
-        {/* Curator Card Styling applied to the Login Form */}
-        <div className="bg-surface-container-lowest rounded-xl p-10 md:p-12 editorial-shadow border border-outline-variant/15">
-          <div className="mb-10">
-            <h2 className="text-2xl font-bold text-primary font-headline mb-2 text-center">
+    <div className="bg-background text-on-background min-h-screen flex flex-col">
+      <main className="grow flex flex-col items-center justify-center px-6 py-12">
+        <div className="mb-10 flex flex-col items-center">
+          <h1 className="text-3xl font-extrabold tracking-tight text-primary font-headline">
+            JobNest
+          </h1>
+        </div>
+        <div className="w-full max-w-md surface-container-lowest rounded-xl p-10 md:p-12 shadow-[0_40px_60px_-5px_rgba(25,28,30,0.06)] border border-outline-variant/15">
+          <div className="mb-10 text-center">
+            <h2 className="text-2xl font-bold text-on-surface mb-3 tracking-tight">
               Welcome Back
             </h2>
+            <p className="text-secondary body-lg">
+              Log in to your candidate account
+            </p>
           </div>
-          <form action="#" className="space-y-8" method="POST">
-            {/* Email Input */}
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {error && (
+              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-xl">
+                {error}
+              </div>
+            )}
             <div className="space-y-2">
               <label
-                className="block text-[0.75rem] font-bold tracking-[0.05em] uppercase text-on-surface-variant/80 font-label"
-                htmlFor="email"
+                className="block text-sm font-semibold text-on-surface-variant tracking-wide uppercase"
+                style={{ fontSize: "0.75rem" }}
               >
                 Email Address
               </label>
-              <input
-                className="w-full bg-surface-container-highest border-none rounded-xl py-4 px-5 text-on-surface placeholder:text-outline/60 focus:ring-2 focus:ring-primary-fixed focus:bg-surface-container-lowest transition-all duration-200 outline-none"
-                id="email"
-                name="email"
-                placeholder="curator@jobnest.com"
-                required
-                type="email"
-              />
-            </div>
-            {/* Password Input */}
-            <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <label
-                  className="block text-[0.75rem] font-bold tracking-[0.05em] uppercase text-on-surface-variant/80 font-label"
-                  htmlFor="password"
-                >
-                  Password
-                </label>
-                <a
-                  className="text-[0.75rem] font-semibold text-secondary hover:text-primary transition-colors duration-200"
-                  href="#"
-                >
-                  Forgot Password?
-                </a>
-              </div>
-              <div className="relative">
+              <div className="relative group">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <span
+                    className="material-symbols-outlined text-outline text-sm"
+                    data-icon="mail"
+                  >
+                    mail
+                  </span>
+                </div>
                 <input
-                  className="w-full bg-surface-container-highest border-none rounded-xl py-4 px-5 text-on-surface placeholder:text-outline/60 focus:ring-2 focus:ring-primary-fixed focus:bg-surface-container-lowest transition-all duration-200 outline-none"
-                  id="password"
-                  name="password"
-                  placeholder="••••••••"
+                  className="block w-full pl-11 pr-4 py-4 bg-surface-container-highest border-none rounded-xl focus:ring-2 focus:ring-primary-fixed focus:bg-surface-container-lowest transition-all duration-300 outline-none text-on-surface placeholder:text-outline/60"
+                  placeholder="name@example.com"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   required
-                  type="password"
                 />
               </div>
             </div>
-            {/* Login Button */}
-            <div className="pt-2">
-              <button
-                className="w-full bg-primary text-on-primary font-bold py-4 px-6 rounded-xl hover:opacity-90 active:scale-[0.98] transition-all duration-200 shadow-lg shadow-primary/10"
-                type="submit"
+            <div className="space-y-2">
+              <label
+                className="block text-sm font-semibold text-on-surface-variant tracking-wide uppercase"
+                style={{ fontSize: "0.75rem" }}
               >
-                Login
+                Password
+              </label>
+              <div className="relative group">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <span
+                    className="material-symbols-outlined text-outline text-sm"
+                    data-icon="lock"
+                  >
+                    lock
+                  </span>
+                </div>
+                <input
+                  className="block w-full pl-11 pr-12 py-4 bg-surface-container-highest border-none rounded-xl focus:ring-2 focus:ring-primary-fixed focus:bg-surface-container-lowest transition-all duration-300 outline-none text-on-surface placeholder:text-outline/60"
+                  placeholder="••••••••"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+                <button
+                  className="absolute inset-y-0 right-0 pr-4 flex items-center text-outline hover:text-primary transition-colors"
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  <span
+                    className="material-symbols-outlined text-sm"
+                    data-icon={showPassword ? "visibility_off" : "visibility"}
+                  >
+                    {showPassword ? "visibility_off" : "visibility"}
+                  </span>
+                </button>
+              </div>
+            </div>
+            <div className="pt-4">
+              <button
+                className="w-full bg-primary text-on-primary font-bold py-4 rounded-xl shadow-lg hover:opacity-90 active:scale-[0.98] transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                type="submit"
+                disabled={loading}
+              >
+                {loading ? "Logging in..." : "Log In"}{" "}
+                <span
+                  className="material-symbols-outlined text-lg"
+                  data-icon="arrow_forward"
+                >
+                  arrow_forward
+                </span>
               </button>
             </div>
           </form>
-          {/* Registration Redirect */}
-          <div className="mt-10 pt-8 border-t border-outline-variant/15 text-center">
+          <div className="mt-10 pt-8 border-outline-variant/15 flex flex-col items-center gap-6">
             <p className="text-on-surface-variant text-sm">
-              New to JobNest?
+              Don't have an account?{" "}
               <a
-                className="text-primary font-bold hover:underline underline-offset-4 ml-1"
-                href="#"
+                className="text-primary font-bold hover:underline decoration-2 underline-offset-4 ml-1 cursor-pointer"
+                onClick={() => navigate("/candidate-signup")}
               >
-                Register your account
+                Sign Up
               </a>
             </p>
           </div>
         </div>
       </main>
-      {/* Footer Content Anchor */}
-      <footer className="mt-12 flex flex-col md:flex-row items-center gap-6">
-        <div className="flex gap-8">
-          <a
-            className="text-[0.7rem] font-bold tracking-widest uppercase text-secondary hover:text-primary transition-colors"
-            href="#"
-          >
-            Privacy Policy
-          </a>
-          <a
-            className="text-[0.7rem] font-bold tracking-widest uppercase text-secondary hover:text-primary transition-colors"
-            href="#"
-          >
-            Terms of Service
-          </a>
-          <a
-            className="text-[0.7rem] font-bold tracking-widest uppercase text-secondary hover:text-primary transition-colors"
-            href="#"
-          >
-            Help Center
-          </a>
-        </div>
-        <p className="text-[0.7rem] font-bold tracking-widest uppercase text-on-tertiary-container/60 md:ml-auto">
-          © 2024 JobNest Curator. All rights reserved.
-        </p>
-      </footer>
-      {/* Aesthetic Layering: Tonal Accents */}
-      <div className="fixed top-0 left-0 w-full h-1 bg-linear-to-r from-primary via-on-primary-container to-secondary opacity-20"></div>
-      <div className="fixed -bottom-24 -right-24 w-96 h-96 bg-primary-fixed/20 rounded-full blur-[100px] pointer-events-none"></div>
-      <div className="fixed -top-24 -left-24 w-96 h-96 bg-secondary-container/20 rounded-full blur-[100px] pointer-events-none"></div>
     </div>
   );
 };

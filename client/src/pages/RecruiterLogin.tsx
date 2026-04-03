@@ -1,142 +1,146 @@
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+
 const RecruiterLogin = () => {
+  const navigate = useNavigate();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+
+    try {
+      const response = await fetch("http://localhost:3000/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+          password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.message || "Login failed");
+        return;
+      }
+
+      // Store token/user info in localStorage
+      localStorage.setItem("user", JSON.stringify(data.user));
+      localStorage.setItem("token", data.user.user_id);
+      if (data.company) {
+        localStorage.setItem("company", JSON.stringify(data.company));
+      }
+
+      setEmail("");
+      setPassword("");
+      setTimeout(() => {
+        // Redirect to job listing after successful login
+        navigate("/job-listing");
+      }, 1000);
+    } catch (err) {
+      setError("An error occurred. Please try again.");
+      console.error("Login error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className="bg-background font-body text-on-surface min-h-screen flex flex-col">
-      {/* Hero Backdrop/Ambient Texture */}
-      <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-secondary-container/20 blur-[120px]"></div>
-        <div className="absolute bottom-[-5%] right-[-5%] w-[30%] h-[30%] rounded-full bg-primary-container/5 blur-[100px]"></div>
-      </div>
-      {/* Main Content */}
-      <main className="grow flex flex-col items-center justify-center px-6 py-12">
-        {/* Logo Header */}
-        <header className="mb-12">
-          <h1 className="text-5xl font-extrabold tracking-tighter text-primary font-headline">
-            JobNest
-          </h1>
-        </header>
-        {/*Login Card*/}
-        <div className="w-full max-w-md bg-surface-container-lowest rounded-xl editorial-shadow border border-outline-variant/10 overflow-hidden">
-          <div className="p-8 md:p-12">
-            <header className="text-center mb-10">
-              <h2 className="text-2xl font-bold text-primary mb-2 tracking-tight">
-                Welcome Back
+    <div className="bg-background text-on-background min-h-screen flex flex-col">
+      <main className="grow flex items-center justify-center px-4 py-12">
+        <div className="max-w-md w-full">
+          <div className="text-center mb-10">
+            <h1 className="text-3xl font-extrabold tracking-tight text-primary mb-2">
+              JobNest
+            </h1>
+            <p className="text-secondary font-medium italic">
+              For Employers &amp; Recruiters
+            </p>
+          </div>
+          <div className="bg-surface-container-lowest rounded-xl p-8 md:p-12 editorial-shadow border border-outline-variant/15">
+            <div className="mb-8 text-center md:text-left">
+              <h2 className="text-2xl font-bold text-primary mb-2">
+                Recruiter Log In
               </h2>
-              <p className="text-secondary text-sm">
-                Sign in to manage your talent pipeline.
+              <p className="text-on-surface-variant body-lg">
+                Access your talent network and manage job postings.
               </p>
-            </header>
-            <form className="space-y-6">
-              {/*Email Field */}
-              <div className="space-y-2">
-                <label className="block text-xs font-bold tracking-widest uppercase text-on-surface-variant/70 ml-1">
+            </div>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {error && (
+                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-xl">
+                  {error}
+                </div>
+              )}
+              <div>
+                <label className="block text-xs font-bold tracking-widest text-secondary uppercase mb-2">
                   Email Address
                 </label>
-                <div className="relative group">
-                  <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline group-focus-within:text-primary transition-colors text-lg">
-                    mail
-                  </span>
-                  <input
-                    className="w-full pl-12 pr-4 py-4 bg-surface-container-highest border-none rounded-xl focus:ring-2 focus:ring-primary-fixed focus:bg-surface-container-lowest transition-all placeholder:text-outline/60 text-on-surface"
-                    placeholder="name@company.com"
-                    type="email"
-                  />
-                </div>
+                <input
+                  className="w-full bg-surface-container-highest border-none rounded-xl px-4 py-3 focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary-fixed transition-all outline-none"
+                  placeholder="name@company.com"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
               </div>
-              {/*Password Field */}
-              <div className="space-y-2">
-                <div className="flex justify-between items-center px-1">
-                  <label className="block text-xs font-bold tracking-widest uppercase text-on-surface-variant/70">
-                    Password
-                  </label>
-                  <a
-                    className="text-xs font-semibold text-secondary hover:text-primary transition-colors"
-                    href="#"
-                  >
-                    Forgot Password?
-                  </a>
-                </div>
-                <div className="relative group">
-                  <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline group-focus-within:text-primary transition-colors text-lg">
-                    lock
-                  </span>
-                  <input
-                    className="w-full pl-12 pr-4 py-4 bg-surface-container-highest border-none rounded-xl focus:ring-2 focus:ring-primary-fixed focus:bg-surface-container-lowest transition-all placeholder:text-outline/60 text-on-surface"
-                    placeholder="••••••••"
-                    type="password"
-                  />
-                </div>
+              <div>
+                <label className="block text-xs font-bold tracking-widest text-secondary uppercase mb-2">
+                  Password
+                </label>
+                <input
+                  className="w-full bg-surface-container-highest border-none rounded-xl px-4 py-3 focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary-fixed transition-all outline-none"
+                  placeholder="••••••••"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
               </div>
-              {/* CTA Button */}
-              <button className="w-full bg-primary text-on-primary font-bold py-4 rounded-xl shadow-lg shadow-primary/10 hover:bg-primary-container active:scale-[0.98] transition-all duration-200 mt-4">
-                Login
-              </button>
-            </form>
-            {/* Footer Link */}
-            <div className="mt-10 pt-8 border-t border-outline-variant/15 text-center">
-              <p className="text-sm text-on-surface-variant">
-                New to JobNest?
-                <a
-                  className="ml-1 font-bold text-primary hover:underline decoration-2 underline-offset-4"
-                  href="#"
+              <div className="pt-4">
+                <button
+                  className="w-full bg-primary text-on-primary font-bold py-4 rounded-xl hover:opacity-90 transition-all flex items-center justify-center gap-2 group disabled:opacity-50 disabled:cursor-not-allowed"
+                  type="submit"
+                  disabled={loading}
                 >
-                  Register your account
+                  {loading ? "Logging in..." : "Log In"}
+                  <span className="material-symbols-outlined text-lg group-hover:translate-x-1 transition-transform">
+                    arrow_forward
+                  </span>
+                </button>
+              </div>
+            </form>
+            <div className="mt-8 text-center">
+              <p className="text-on-surface-variant font-medium text-sm">
+                Don't have a recruiter account?
+                <a
+                  className="text-primary font-bold hover:underline ml-1 cursor-pointer"
+                  onClick={() => navigate("/recruiter-signup")}
+                >
+                  Sign Up
                 </a>
               </p>
             </div>
           </div>
-        </div>
-        {/* Trust Badges / Editorial Note */}
-        <div className="mt-12 text-center max-w-xs opacity-60">
-          <p className="text-[10px] font-bold tracking-[0.2em] uppercase text-secondary mb-4">
-            Trusted by 5,000+ Global Enterprises
-          </p>
-          <div className="flex justify-center gap-6 grayscale opacity-50">
-            <span className="material-symbols-outlined text-3xl">
-              corporate_fare
-            </span>
-            <span className="material-symbols-outlined text-3xl">token</span>
-            <span className="material-symbols-outlined text-3xl">
-              apartment
-            </span>
+          <div className="mt-8 text-center px-4">
+            <p className="text-secondary text-xs font-medium opacity-60">
+              By logging in, you agree to our Terms of Service and Privacy
+              Policy.
+              <br />
+              Your information is stored securely in the JobNest database.
+            </p>
           </div>
         </div>
       </main>
-      {/* Footer - From Shared Components Hierarchy */}
-      <footer className="w-full border-t border-slate-200/15 dark:border-slate-800/15 bg-slate-50 dark:bg-slate-950">
-        <div className="flex flex-col md:flex-row justify-between items-center px-12 py-8 w-full max-w-7xl mx-auto">
-          <div className="mb-4 md:mb-0">
-            <p className="font-manrope text-xs tracking-widest uppercase text-slate-400 dark:text-slate-500">
-              © 2024 JobNest Global. Curated with Serene Intelligence.
-            </p>
-          </div>
-          <div className="flex gap-8">
-            <a
-              className="font-manrope text-xs tracking-widest uppercase text-slate-400 dark:text-slate-500 hover:text-blue-700 dark:hover:text-blue-300 transition-colors opacity-80 hover:opacity-100"
-              href="#"
-            >
-              Privacy Policy
-            </a>
-            <a
-              className="font-manrope text-xs tracking-widest uppercase text-slate-400 dark:text-slate-500 hover:text-blue-700 dark:hover:text-blue-300 transition-colors opacity-80 hover:opacity-100"
-              href="#"
-            >
-              Terms of Service
-            </a>
-            <a
-              className="font-manrope text-xs tracking-widest uppercase text-slate-400 dark:text-slate-500 hover:text-blue-700 dark:hover:text-blue-300 transition-colors opacity-80 hover:opacity-100"
-              href="#"
-            >
-              Cookie Settings
-            </a>
-            <a
-              className="font-manrope text-xs tracking-widest uppercase text-slate-400 dark:text-slate-500 hover:text-blue-700 dark:hover:text-blue-300 transition-colors opacity-80 hover:opacity-100"
-              href="#"
-            >
-              Accessibility
-            </a>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 };
