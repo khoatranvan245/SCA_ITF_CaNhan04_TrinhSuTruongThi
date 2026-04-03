@@ -42,12 +42,14 @@ model Company {
   description String?
   location    String?
   website     String?
+  category_id Int?
   user_id     Int
   created_at  DateTime @default(now())
   updated_at  DateTime @updatedAt
 
-  user User  @relation(fields: [user_id], references: [user_id])
-  jobs Job[]
+  user     User      @relation(fields: [user_id], references: [user_id])
+  category Category? @relation(fields: [category_id], references: [category_id])
+  jobs     Job[]
 }
 
 model Category {
@@ -57,7 +59,8 @@ model Category {
   created_at  DateTime @default(now())
   updated_at  DateTime @updatedAt
 
-  jobs Job[]
+  jobs      Job[]
+  companies Company[]
 }
 
 model Job {

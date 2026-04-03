@@ -1,59 +1,224 @@
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import Footer from "../layouts/Footer";
+import Navbar from "../layouts/Navbar";
+
+type StoredUser = {
+  user_id?: number;
+  role?: {
+    role_id?: number;
+    title?: string;
+  };
+};
+
+type CompanyProfileData = {
+  name: string;
+  category_id: number | null;
+  location: string;
+  website: string;
+  description: string;
+};
+
+type CategoryOption = {
+  category_id: number;
+  title: string;
+};
+
+type EditableSection =
+  | "name"
+  | "industry"
+  | "location"
+  | "website"
+  | "description"
+  | null;
+
+const emptyProfile: CompanyProfileData = {
+  name: "",
+  category_id: null,
+  location: "",
+  website: "",
+  description: "",
+};
+
 const CompanyProfile = () => {
-  return (
-    <div className="bg-background text-on-surface antialiased">
-      {/* TopNavBar Component  */}
-      <header className="fixed top-0 w-full z-50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl shadow-sm h-16">
-        <div className="flex justify-between items-center px-8 h-full w-full max-w-7xl mx-auto">
-          <div className="flex items-center gap-12">
-            <span className="text-xl font-bold text-slate-900 dark:text-slate-50 tracking-tight">
-              JobNest
-            </span>
-            <nav className="hidden md:flex items-center gap-8">
-              <a
-                className="text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors duration-200"
-                href="#"
-              >
-                Find Jobs
-              </a>
-              <a
-                className="text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors duration-200"
-                href="#"
-              >
-                Companies
-              </a>
-              <a
-                className="text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors duration-200"
-                href="#"
-              >
-                About
-              </a>
-            </nav>
-          </div>
-          <div className="flex items-center gap-6">
-            <button
-              className="material-symbols-outlined text-slate-500 hover:text-primary transition-colors duration-200"
-              data-icon="notifications"
-            >
-              notifications
-            </button>
-            <div className="flex items-center gap-3 pl-4 border-l border-outline-variant/20">
-              <div className="text-right hidden sm:block">
-                <p className="text-sm font-semibold text-primary leading-none">
-                  Alex Rivera
-                </p>
-              </div>
-              <img
-                alt="User avatar"
-                className="w-10 h-10 rounded-full object-cover border-2 border-primary/10"
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuChT0d4U1sSZhgSmej6Xzmuo5F_viH1EVqXLX6fMFpo38yLqNmKtbTS2ns9KElNnTE_S611XmfQ8gIWDLxabg_Ku1nGPXdGgKLAndA_2n9hiAeylSqAccivqFnTzD5teXSQQQJLSVQB_fpBVN1NDjn40Ygrw6F2V5mzUyCOnHKqs2Mbxq1jcXNYWOXNRJWX9P4tj75s5Ra-dsrsv_Fq9v2CXW38eKWZkzbN9k_NZTsqSdhDuml-kag0HuMsVI4vPmEl38C9vuQp59M"
-              />
+  const navigate = useNavigate();
+  const [profile, setProfile] = useState<CompanyProfileData>(emptyProfile);
+  const [draftProfile, setDraftProfile] =
+    useState<CompanyProfileData>(emptyProfile);
+  const [editingSection, setEditingSection] = useState<EditableSection>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [categories, setCategories] = useState<CategoryOption[]>([]);
+
+  const rawUser = useMemo(() => localStorage.getItem("user"), []);
+
+  const parsedUser = useMemo(() => {
+    if (!rawUser) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(rawUser) as StoredUser;
+    } catch {
+      return null;
+    }
+  }, [rawUser]);
+
+  const userId = parsedUser?.user_id;
+  const isRecruiter =
+    parsedUser?.role?.role_id === 2 ||
+    parsedUser?.role?.title?.toLowerCase() === "recruiter";
+
+  useEffect(() => {
+    if (!userId || !isRecruiter) {
+      navigate("/recruiter-login", { replace: true });
+      return;
+    }
+
+    const fetchCompanyProfile = async () => {
+      setIsLoading(true);
+      setError("");
+
+      try {
+        const [profileResponse, categoriesResponse] = await Promise.all([
+          fetch(`http://localhost:3000/api/company-profile/${userId}`),
+          fetch("http://localhost:3000/api/company-profile/categories"),
+        ]);
+
+        const data = await profileResponse.json();
+        const categoriesData = await categoriesResponse.json();
+
+        if (!profileResponse.ok) {
+          setError(data.message || "Failed to load company profile");
+          return;
+        }
+
+        if (categoriesResponse.ok) {
+          setCategories(categoriesData.categories || []);
+        }
+
+        const normalizedProfile = {
+          name: data.company?.name ?? "",
+          category_id: data.company?.category_id ?? null,
+          location: data.company?.location ?? "",
+          website: data.company?.website ?? "",
+          description: data.company?.description ?? "",
+        };
+
+        setProfile(normalizedProfile);
+        setDraftProfile(normalizedProfile);
+
+        const rawCompany = localStorage.getItem("company");
+        const parsedCompany = rawCompany ? JSON.parse(rawCompany) : {};
+        localStorage.setItem(
+          "company",
+          JSON.stringify({ ...parsedCompany, ...data.company }),
+        );
+      } catch (err) {
+        setError("An error occurred while loading profile.");
+        console.error("Fetch company profile error:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchCompanyProfile();
+  }, [isRecruiter, navigate, userId]);
+
+  const handleSectionClick = (section: EditableSection) => {
+    setSuccess("");
+    setEditingSection(section);
+  };
+
+  const handleDiscard = () => {
+    setDraftProfile(profile);
+    setEditingSection(null);
+    setError("");
+    setSuccess("");
+  };
+
+  const handleSaveProfile = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    if (!userId) {
+      setError("Invalid user session");
+      return;
+    }
+
+    setIsSaving(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const response = await fetch(
+        `http://localhost:3000/api/company-profile/${userId}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(draftProfile),
+        },
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.message || "Failed to update company profile");
+        return;
+      }
+
+      const updatedProfile = {
+        name: data.company?.name ?? "",
+        category_id: data.company?.category_id ?? null,
+        location: data.company?.location ?? "",
+        website: data.company?.website ?? "",
+        description: data.company?.description ?? "",
+      };
+
+      setProfile(updatedProfile);
+      setDraftProfile(updatedProfile);
+      setEditingSection(null);
+      setSuccess("Profile updated successfully.");
+
+      const rawCompany = localStorage.getItem("company");
+      const parsedCompany = rawCompany ? JSON.parse(rawCompany) : {};
+      localStorage.setItem(
+        "company",
+        JSON.stringify({ ...parsedCompany, ...data.company }),
+      );
+    } catch (err) {
+      setError("An error occurred while saving profile.");
+      console.error("Update company profile error:", err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="bg-background text-on-surface min-h-screen">
+        <Navbar />
+        <main className="pt-32 pb-24 px-6">
+          <div className="max-w-3xl mx-auto">
+            <div className="bg-surface-container-lowest rounded-xl p-10 border border-outline-variant/15">
+              Loading company profile...
             </div>
           </div>
-        </div>
-      </header>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-background text-on-surface antialiased">
+      <Navbar />
+
       <main className="pt-32 pb-24 px-6">
         <div className="max-w-3xl mx-auto">
-          {/* Header Section  */}
           <div className="mb-12">
             <h1 className="text-display-lg font-bold tracking-tight text-primary mb-2">
               Company Management
@@ -63,257 +228,221 @@ const CompanyProfile = () => {
               talent.
             </p>
           </div>
-          {/* Main Form Card (Preview/Display Mode)  */}
+
           <div className="bg-surface-container-lowest rounded-xl p-8 md:p-12 shadow-[0_40px_60px_-5px_rgba(25,28,30,0.06)] border border-outline-variant/15">
-            <form className="space-y-10">
-              {/* Logo Upload Section  */}
-              <div className="flex flex-col md:flex-row items-center gap-8 mb-4 relative group cursor-pointer section-editable">
-                <div className="relative">
-                  <div className="w-32 h-32 rounded-xl bg-surface-container-highest flex items-center justify-center overflow-hidden border border-outline-variant/15">
-                    <span
-                      className="material-symbols-outlined text-4xl text-outline"
-                      data-icon="business"
-                    >
-                      business
-                    </span>
-                    <div className="absolute inset-0 bg-linear-to-tr from-primary/5 to-secondary/10 opacity-50"></div>
-                  </div>
+            <form className="space-y-10" onSubmit={handleSaveProfile}>
+              {error && (
+                <div className="bg-red-100 border border-red-300 text-red-700 px-4 py-3 rounded-xl text-sm">
+                  {error}
                 </div>
-                <div className="text-center md:text-left flex-1">
-                  <h3 className="font-headline font-bold text-lg text-primary">
-                    Company Logo
-                  </h3>
-                  <p className="text-label text-slate-500 mb-3 uppercase tracking-widest">
-                    Recommended: 400x400px .PNG or .SVG
-                  </p>
-                  <p className="text-sm font-bold text-primary">
-                    Lumina_Mark_Primary.svg
-                  </p>
+              )}
+
+              {success && (
+                <div className="bg-green-100 border border-green-300 text-green-700 px-4 py-3 rounded-xl text-sm">
+                  {success}
                 </div>
-                <span
-                  className="material-symbols-outlined absolute top-0 right-0 text-slate-400 text-lg opacity-0 transition-opacity edit-indicator"
-                  data-icon="edit"
-                >
-                  edit
-                </span>
-              </div>
-              <div className="grid grid-cols-1 gap-10">
-                {/* Company Name  */}
-                <div className="space-y-2 relative group cursor-pointer section-editable pb-4 border-b border-outline-variant/10">
-                  <div className="flex justify-between items-start">
-                    <label className="block font-label text-xs font-bold uppercase tracking-widest text-slate-500">
-                      Company Name
-                    </label>
-                    <span
-                      className="material-symbols-outlined text-slate-400 text-lg opacity-0 transition-opacity edit-indicator"
-                      data-icon="edit"
-                    >
-                      edit
-                    </span>
-                  </div>
+              )}
+
+              <div
+                className="space-y-2 relative cursor-pointer section-editable pb-4 border-b border-outline-variant/10"
+                onClick={() => handleSectionClick("name")}
+              >
+                <div className="flex justify-between items-start">
+                  <label className="block font-label text-xs font-bold uppercase tracking-widest text-slate-500">
+                    Company Name
+                  </label>
+                  <span className="material-symbols-outlined text-slate-400 text-lg">
+                    edit
+                  </span>
+                </div>
+                {editingSection === "name" ? (
+                  <input
+                    className="w-full bg-surface-container-highest border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary-fixed outline-none"
+                    value={draftProfile.name}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={(e) =>
+                      setDraftProfile((prev) => ({
+                        ...prev,
+                        name: e.target.value,
+                      }))
+                    }
+                    autoFocus
+                  />
+                ) : (
                   <p className="text-lg font-semibold text-on-surface">
-                    Lumina Creative Collective
+                    {draftProfile.name || "Click to add company name"}
                   </p>
-                </div>
-                {/* Industry & Location Grid  */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                  <div className="space-y-2 relative group cursor-pointer section-editable pb-4 border-b border-outline-variant/10">
-                    <div className="flex justify-between items-start">
-                      <label className="block font-label text-xs font-bold uppercase tracking-widest text-slate-500">
-                        Industry
-                      </label>
-                      <span
-                        className="material-symbols-outlined text-slate-400 text-lg opacity-0 transition-opacity edit-indicator"
-                        data-icon="edit"
-                      >
-                        edit
-                      </span>
-                    </div>
-                    <p className="text-on-surface">Design &amp; Creative</p>
-                  </div>
-                  <div className="space-y-2 relative group cursor-pointer section-editable pb-4 border-b border-outline-variant/10">
-                    <div className="flex justify-between items-start">
-                      <label className="block font-label text-xs font-bold uppercase tracking-widest text-slate-500">
-                        Company Location
-                      </label>
-                      <span
-                        className="material-symbols-outlined text-slate-400 text-lg opacity-0 transition-opacity edit-indicator"
-                        data-icon="edit"
-                      >
-                        edit
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span
-                        className="material-symbols-outlined text-slate-400 text-sm"
-                        data-icon="location_on"
-                      >
-                        location_on
-                      </span>
-                      <p className="text-on-surface">San Francisco, CA</p>
-                    </div>
-                  </div>
-                </div>
-                {/* Website URL  */}
-                <div className="space-y-2 relative group cursor-pointer section-editable pb-4 border-b border-outline-variant/10">
-                  <div className="flex justify-between items-start">
-                    <label className="block font-label text-xs font-bold uppercase tracking-widest text-slate-500">
-                      Website URL
-                    </label>
-                    <span
-                      className="material-symbols-outlined text-slate-400 text-lg opacity-0 transition-opacity edit-indicator"
-                      data-icon="edit"
-                    >
-                      edit
-                    </span>
-                  </div>
-                  <p className="text-primary font-medium">
-                    https://www.luminacreative.co
-                  </p>
-                </div>
-                {/* Company Description  */}
-                <div className="space-y-2 relative group cursor-pointer section-editable">
-                  <div className="flex justify-between items-start">
-                    <label className="block font-label text-xs font-bold uppercase tracking-widest text-slate-500">
-                      Company Description
-                    </label>
-                    <span
-                      className="material-symbols-outlined text-slate-400 text-lg opacity-0 transition-opacity edit-indicator"
-                      data-icon="edit"
-                    >
-                      edit
-                    </span>
-                  </div>
-                  <div className="bg-surface-container-low/50 rounded-xl p-6 text-on-surface leading-relaxed text-sm">
-                    <p className="mb-4">
-                      Lumina Creative Collective is a multi-disciplinary design
-                      studio dedicated to crafting digital experiences that
-                      bridge the gap between human intuition and technological
-                      capability. Founded in the heart of San Francisco, we
-                      specialize in high-impact visual identity and interactive
-                      platforms for emerging brands.
-                    </p>
-                    <p>
-                      Our team thrives at the intersection of aesthetic
-                      precision and functional excellence, fostering a culture
-                      where radical ideas are refined into market-defining
-                      solutions. We are currently expanding our creative
-                      engineering team to meet the demands of our growing global
-                      client list.
-                    </p>
-                  </div>
-                </div>
+                )}
               </div>
-              {/* Action Buttons  */}
+
+              <div
+                className="space-y-2 relative cursor-pointer section-editable pb-4 border-b border-outline-variant/10"
+                onClick={() => handleSectionClick("industry")}
+              >
+                <div className="flex justify-between items-start">
+                  <label className="block font-label text-xs font-bold uppercase tracking-widest text-slate-500">
+                    Industry
+                  </label>
+                  <span className="material-symbols-outlined text-slate-400 text-lg">
+                    edit
+                  </span>
+                </div>
+                {editingSection === "industry" ? (
+                  <select
+                    className="w-full bg-surface-container-highest border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary-fixed outline-none"
+                    value={draftProfile.category_id ?? ""}
+                    onChange={(e) =>
+                      setDraftProfile((prev) => ({
+                        ...prev,
+                        category_id: e.target.value
+                          ? Number(e.target.value)
+                          : null,
+                      }))
+                    }
+                    onClick={(e) => e.stopPropagation()}
+                    autoFocus
+                  >
+                    <option value="">Select industry</option>
+                    {categories.map((category) => (
+                      <option
+                        key={category.category_id}
+                        value={category.category_id}
+                      >
+                        {category.title}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <p className="text-on-surface">
+                    {categories.find(
+                      (category) =>
+                        category.category_id === draftProfile.category_id,
+                    )?.title || "Click to select industry"}
+                  </p>
+                )}
+              </div>
+
+              <div
+                className="space-y-2 relative cursor-pointer section-editable pb-4 border-b border-outline-variant/10"
+                onClick={() => handleSectionClick("location")}
+              >
+                <div className="flex justify-between items-start">
+                  <label className="block font-label text-xs font-bold uppercase tracking-widest text-slate-500">
+                    Company Location
+                  </label>
+                  <span className="material-symbols-outlined text-slate-400 text-lg">
+                    edit
+                  </span>
+                </div>
+                {editingSection === "location" ? (
+                  <input
+                    className="w-full bg-surface-container-highest border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary-fixed outline-none"
+                    value={draftProfile.location}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={(e) =>
+                      setDraftProfile((prev) => ({
+                        ...prev,
+                        location: e.target.value,
+                      }))
+                    }
+                    autoFocus
+                  />
+                ) : (
+                  <p className="text-on-surface">
+                    {draftProfile.location || "Click to add location"}
+                  </p>
+                )}
+              </div>
+
+              <div
+                className="space-y-2 relative cursor-pointer section-editable pb-4 border-b border-outline-variant/10"
+                onClick={() => handleSectionClick("website")}
+              >
+                <div className="flex justify-between items-start">
+                  <label className="block font-label text-xs font-bold uppercase tracking-widest text-slate-500">
+                    Website URL
+                  </label>
+                  <span className="material-symbols-outlined text-slate-400 text-lg">
+                    edit
+                  </span>
+                </div>
+                {editingSection === "website" ? (
+                  <input
+                    className="w-full bg-surface-container-highest border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary-fixed outline-none"
+                    value={draftProfile.website}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={(e) =>
+                      setDraftProfile((prev) => ({
+                        ...prev,
+                        website: e.target.value,
+                      }))
+                    }
+                    autoFocus
+                  />
+                ) : (
+                  <p className="text-primary font-medium">
+                    {draftProfile.website || "Click to add website"}
+                  </p>
+                )}
+              </div>
+
+              <div
+                className="space-y-2 relative cursor-pointer section-editable"
+                onClick={() => handleSectionClick("description")}
+              >
+                <div className="flex justify-between items-start">
+                  <label className="block font-label text-xs font-bold uppercase tracking-widest text-slate-500">
+                    Company Description
+                  </label>
+                  <span className="material-symbols-outlined text-slate-400 text-lg">
+                    edit
+                  </span>
+                </div>
+                {editingSection === "description" ? (
+                  <textarea
+                    className="w-full min-h-36 bg-surface-container-highest border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary-fixed outline-none"
+                    value={draftProfile.description}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={(e) =>
+                      setDraftProfile((prev) => ({
+                        ...prev,
+                        description: e.target.value,
+                      }))
+                    }
+                    autoFocus
+                  />
+                ) : (
+                  <div className="bg-surface-container-low/50 rounded-xl p-6 text-on-surface leading-relaxed text-sm whitespace-pre-wrap">
+                    {draftProfile.description ||
+                      "Click to add company description"}
+                  </div>
+                )}
+              </div>
+
               <div className="pt-6 flex flex-col md:flex-row justify-between items-center gap-4">
                 <button
                   className="text-secondary font-semibold hover:text-primary transition-colors order-2 md:order-1"
                   type="button"
+                  onClick={handleDiscard}
                 >
                   Discard changes
                 </button>
                 <div className="flex gap-4 w-full md:w-auto order-1 md:order-2">
                   <button
-                    className="w-full md:w-auto bg-primary text-on-primary px-10 py-3 rounded-xl font-bold shadow-lg hover:opacity-90 transition-opacity"
+                    className="w-full md:w-auto bg-primary text-on-primary px-10 py-3 rounded-xl font-bold shadow-lg hover:opacity-90 transition-opacity disabled:opacity-60"
                     type="submit"
+                    disabled={isSaving}
                   >
-                    Save Profile
+                    {isSaving ? "Saving..." : "Save Profile"}
                   </button>
                 </div>
               </div>
             </form>
           </div>
-          {/* Supporting Cards Grid  */}
         </div>
       </main>
-      {/* Footer  */}
-      <footer className="bg-[#f7f9fb] dark:bg-slate-950 w-full mt-24 border-t border-outline-variant/15">
-        <div className="max-w-360 mx-auto px-12 py-12 flex flex-col gap-12">
-          <div className="flex flex-row justify-between items-start">
-            <div className="flex flex-col gap-4">
-              <span className="text-2xl font-bold tracking-tighter text-primary dark:text-white">
-                JobNest
-              </span>
-              <p className="font-manrope text-sm text-secondary dark:text-slate-400 max-w-xs">
-                Curating the future of professional work with intelligence and
-                serenity.
-              </p>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-16">
-              <div className="flex flex-col gap-4">
-                <span className="font-bold text-primary dark:text-white text-sm uppercase tracking-widest">
-                  Platform
-                </span>
-                <a
-                  className="text-secondary dark:text-slate-400 hover:text-primary dark:hover:text-blue-300 transition-colors text-sm"
-                  href="#"
-                >
-                  Find Jobs
-                </a>
-                <a
-                  className="text-secondary dark:text-slate-400 hover:text-primary dark:hover:text-blue-300 transition-colors text-sm"
-                  href="#"
-                >
-                  Companies
-                </a>
-              </div>
-              <div className="flex flex-col gap-4">
-                <span className="font-bold text-primary dark:text-white text-sm uppercase tracking-widest">
-                  Employers
-                </span>
-                <a
-                  className="text-secondary dark:text-slate-400 hover:text-primary dark:hover:text-blue-300 transition-colors text-sm"
-                  href="#"
-                >
-                  Post a Job
-                </a>
-                <a
-                  className="text-secondary dark:text-slate-400 hover:text-primary dark:hover:text-blue-300 transition-colors text-sm"
-                  href="#"
-                >
-                  Hiring Solutions
-                </a>
-              </div>
-              <div className="flex flex-col gap-4">
-                <span className="font-bold text-primary dark:text-white text-sm uppercase tracking-widest">
-                  Legal
-                </span>
-                <a
-                  className="text-secondary dark:text-slate-400 hover:text-primary dark:hover:text-blue-300 transition-colors text-sm"
-                  href="#"
-                >
-                  Privacy Policy
-                </a>
-                <a
-                  className="text-secondary dark:text-slate-400 hover:text-primary dark:hover:text-blue-300 transition-colors text-sm"
-                  href="#"
-                >
-                  Terms of Service
-                </a>
-              </div>
-            </div>
-          </div>
-          <div className="flex flex-row justify-between items-center pt-10 border-t border-slate-200/50 dark:border-slate-800/50 font-manrope text-sm tracking-wide">
-            <p className="text-secondary dark:text-slate-400">
-              © 2024 JobNest. Curated with Serene Intelligence.
-            </p>
-            <div className="flex gap-8">
-              <a
-                className="text-secondary dark:text-slate-500 hover:text-primary dark:hover:text-white transition-all duration-300"
-                href="#"
-              >
-                Support
-              </a>
-              <a
-                className="text-secondary dark:text-slate-500 hover:text-primary dark:hover:text-white transition-all duration-300"
-                href="#"
-              >
-                Contact Us
-              </a>
-            </div>
-          </div>
-        </div>
-      </footer>
+
+      <Footer />
     </div>
   );
 };
