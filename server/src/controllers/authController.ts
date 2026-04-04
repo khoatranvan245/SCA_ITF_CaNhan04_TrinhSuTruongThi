@@ -37,7 +37,7 @@ export const candidateSignup = async (req: Request, res: Response) => {
     // Ensure connection is established
     await prisma.$connect();
 
-    const { email, password, confirmPassword } = req.body;
+    const { email, password, confirmPassword, fullName, phone } = req.body;
 
     // Validate basic fields
     const validationError = validateBasicFields(
@@ -47,6 +47,11 @@ export const candidateSignup = async (req: Request, res: Response) => {
     );
     if (validationError) {
       res.status(400).json({ message: validationError });
+      return;
+    }
+
+    if (!fullName || !String(fullName).trim()) {
+      res.status(400).json({ message: "Full name is required" });
       return;
     }
 
@@ -63,25 +68,54 @@ export const candidateSignup = async (req: Request, res: Response) => {
     // Hash password
     const passwordHash = hashPassword(password);
 
-    // Create user with candidate role (role_id = 1)
-    const user = await prisma.user.create({
-      data: {
-        email,
-        password_hash: passwordHash,
-        role_id: 1, // Candidate
-      },
-      include: {
-        role: true,
-      },
+    const defaultCity =
+      (await prisma.city.findFirst({
+        where: { name: { in: ["Hà Nội", "Ha Noi"] } },
+      })) ||
+      (await prisma.city.findFirst({
+        orderBy: { city_id: "asc" },
+      }));
+
+    if (!defaultCity) {
+      res.status(400).json({
+        message: "No city data found. Please seed city table before signup.",
+      });
+      return;
+    }
+
+    // Create user and candidate profile in one transaction.
+    const result = await prisma.$transaction(async (tx) => {
+      const createdUser = await tx.user.create({
+        data: {
+          email,
+          password_hash: passwordHash,
+          role_id: 1, // Candidate
+        },
+        include: {
+          role: true,
+        },
+      });
+
+      const createdCandidate = await tx.candidate.create({
+        data: {
+          full_name: String(fullName).trim(),
+          phone: typeof phone === "string" ? phone.trim() : null,
+          user_id: createdUser.user_id,
+          city_id: defaultCity.city_id,
+        },
+      });
+
+      return { user: createdUser, candidate: createdCandidate };
     });
 
     res.status(201).json({
       message: "Candidate registered successfully",
       user: {
-        user_id: user.user_id,
-        email: user.email,
-        role: user.role,
+        user_id: result.user.user_id,
+        email: result.user.email,
+        role: result.user.role,
       },
+      candidate: result.candidate,
     });
   } catch (error) {
     console.error("Candidate signup error:", error);
@@ -225,6 +259,13 @@ const loginByRole = async (
       return;
     }
 
+    let candidate = null;
+    if (user.role_id === ROLE_CANDIDATE) {
+      candidate = await prisma.candidate.findFirst({
+        where: { user_id: user.user_id },
+      });
+    }
+
     // If recruiter, also fetch their company
     let company = null;
     if (user.role_id === ROLE_RECRUITER) {
@@ -239,6 +280,7 @@ const loginByRole = async (
         user_id: user.user_id,
         email: user.email,
         role: user.role,
+        full_name: candidate?.full_name ?? null,
       },
       company: company,
     });

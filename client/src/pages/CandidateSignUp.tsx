@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 
 const CandidateSignup = () => {
   const navigate = useNavigate();
+  const [fullName, setFullName] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -26,6 +28,8 @@ const CandidateSignup = () => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
+            fullName,
+            phone: phoneNumber,
             email,
             password,
             confirmPassword,
@@ -41,6 +45,8 @@ const CandidateSignup = () => {
       }
 
       setSuccess(true);
+      setFullName("");
+      setPhoneNumber("");
       setEmail("");
       setPassword("");
       setConfirmPassword("");
@@ -84,6 +90,37 @@ const CandidateSignup = () => {
                 Sign up successful! Redirecting to login...
               </div>
             )}
+            <div className="space-y-2">
+              <label
+                className="block text-sm font-semibold text-on-surface-variant tracking-wide uppercase"
+                style={{ fontSize: "0.75rem" }}
+              >
+                Full Name
+              </label>
+              <input
+                className="block w-full px-4 py-4 bg-surface-container-highest border-none rounded-xl focus:ring-2 focus:ring-primary-fixed focus:bg-surface-container-lowest transition-all duration-300 outline-none text-on-surface placeholder:text-outline/60"
+                placeholder="Nguyen Van A"
+                type="text"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <label
+                className="block text-sm font-semibold text-on-surface-variant tracking-wide uppercase"
+                style={{ fontSize: "0.75rem" }}
+              >
+                Phone Number
+              </label>
+              <input
+                className="block w-full px-4 py-4 bg-surface-container-highest border-none rounded-xl focus:ring-2 focus:ring-primary-fixed focus:bg-surface-container-lowest transition-all duration-300 outline-none text-on-surface placeholder:text-outline/60"
+                placeholder="0912345678"
+                type="tel"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+              />
+            </div>
             <div className="space-y-2">
               <label
                 className="block text-sm font-semibold text-on-surface-variant tracking-wide uppercase"

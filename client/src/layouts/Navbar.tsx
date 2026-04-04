@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 
 type StoredUser = {
   email?: string;
+  full_name?: string | null;
   role?: {
     role_id?: number;
     title?: string;
@@ -55,7 +56,7 @@ const Navbar = () => {
   const displayIdentity =
     isRecruiter && currentCompany?.name
       ? currentCompany.name
-      : currentUser?.email;
+      : currentUser?.full_name || currentUser?.email;
 
   const clearAuthSession = () => {
     localStorage.removeItem("user");

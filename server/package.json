@@ -9,7 +9,8 @@
   "scripts": {
     "dev": "tsx watch src/app.ts",
     "build": "tsc",
-    "start": "node dist/app.js"
+    "start": "node dist/app.js",
+    "seed:cities": "tsx prisma/seed-cities.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.6.0",
