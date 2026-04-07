@@ -263,7 +263,7 @@ const CompanyProfile = () => {
       <main className="pt-32 pb-24 px-6">
         <div className="max-w-3xl mx-auto">
           <div className="mb-12">
-            <h1 className="text-display-lg font-bold tracking-tight text-primary mb-2">
+            <h1 className="text-[3.5rem] font-bold tracking-tight text-primary mb-2">
               Company Management
             </h1>
             <p className="text-secondary body-lg">
@@ -380,7 +380,7 @@ const CompanyProfile = () => {
               >
                 <div className="flex justify-between items-start">
                   <label className="block font-label text-xs font-bold uppercase tracking-widest text-slate-500">
-                    Company City
+                    City
                   </label>
                   <span className="material-symbols-outlined text-slate-400 text-lg">
                     edit
