@@ -311,7 +311,7 @@ const CompanyProfile = () => {
               >
                 <div className="flex justify-between items-start">
                   <label className="block font-label text-xs font-bold uppercase tracking-widest text-slate-500">
-                    Company Name
+                    Name
                   </label>
                 </div>
                 <input
@@ -464,7 +464,7 @@ const CompanyProfile = () => {
               >
                 <div className="flex justify-between items-start">
                   <label className="block font-label text-xs font-bold uppercase tracking-widest text-slate-500">
-                    Company Description
+                    Description
                   </label>
                 </div>
                 <textarea
