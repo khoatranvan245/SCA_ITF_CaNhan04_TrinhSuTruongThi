@@ -152,7 +152,8 @@ export const updateCompanyProfile = async (req: Request, res: Response) => {
       return;
     }
 
-    const { name, website, description, category_id, city_id } = req.body;
+    const { name, website, description, category_id, city_id, address } =
+      req.body;
 
     if (typeof name === "string" && !name.trim()) {
       res.status(400).json({ message: "Company name cannot be empty" });
@@ -200,6 +201,7 @@ export const updateCompanyProfile = async (req: Request, res: Response) => {
       data: {
         ...(typeof name === "string" ? { name: name.trim() } : {}),
         ...(typeof website === "string" ? { website: website.trim() } : {}),
+        ...(typeof address === "string" ? { address: address.trim() } : {}),
         ...(typeof description === "string"
           ? { description: description.trim() }
           : {}),

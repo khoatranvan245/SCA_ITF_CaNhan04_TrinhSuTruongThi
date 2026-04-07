@@ -15,6 +15,7 @@ type CompanyProfileData = {
   name: string;
   category_id: number | null;
   city_id: number | null;
+  address: string;
   website: string;
   description: string;
 };
@@ -33,6 +34,7 @@ type EditableSection =
   | "name"
   | "industry"
   | "city"
+  | "address"
   | "website"
   | "description"
   | null;
@@ -41,6 +43,7 @@ const emptyProfile: CompanyProfileData = {
   name: "",
   category_id: null,
   city_id: null,
+  address: "",
   website: "",
   description: "",
 };
@@ -51,7 +54,16 @@ const fieldContainerClass =
 const fieldContainerActiveClass = "";
 
 const fieldInputClass =
-  "w-full bg-surface-container-lowest border border-outline-variant/15 rounded-xl px-4 py-3 outline-none transition-all focus:border-primary";
+  "w-full bg-surface-container-lowest border rounded-xl px-4 py-3 outline-none transition-all";
+
+const getFieldControlClass = (
+  editingSection: EditableSection,
+  section: Exclude<EditableSection, null>,
+  extraClass = "",
+) =>
+  `${fieldInputClass} ${
+    editingSection === section ? "border-primary" : "border-outline-variant/15"
+  } ${extraClass}`;
 
 const CompanyProfile = () => {
   const navigate = useNavigate();
@@ -125,6 +137,7 @@ const CompanyProfile = () => {
           name: data.company?.name ?? "",
           category_id: data.company?.category_id ?? null,
           city_id: data.company?.city_id ?? null,
+          address: data.company?.address ?? "",
           website: data.company?.website ?? "",
           description: data.company?.description ?? "",
         };
@@ -217,6 +230,7 @@ const CompanyProfile = () => {
         name: data.company?.name ?? "",
         category_id: data.company?.category_id ?? null,
         city_id: data.company?.city_id ?? null,
+        address: data.company?.address ?? "",
         website: data.company?.website ?? "",
         description: data.company?.description ?? "",
       };
@@ -303,24 +317,19 @@ const CompanyProfile = () => {
                     edit
                   </span>
                 </div>
-                {editingSection === "name" ? (
-                  <input
-                    className={fieldInputClass}
-                    value={draftProfile.name}
-                    onClick={(e) => e.stopPropagation()}
-                    onChange={(e) =>
-                      setDraftProfile((prev) => ({
-                        ...prev,
-                        name: e.target.value,
-                      }))
-                    }
-                    autoFocus
-                  />
-                ) : (
-                  <p className="text-lg font-semibold text-on-surface">
-                    {draftProfile.name || "Click to add company name"}
-                  </p>
-                )}
+                <input
+                  className={getFieldControlClass(editingSection, "name")}
+                  value={draftProfile.name}
+                  onClick={(e) => e.stopPropagation()}
+                  onFocus={() => setEditingSection("name")}
+                  onChange={(e) =>
+                    setDraftProfile((prev) => ({
+                      ...prev,
+                      name: e.target.value,
+                    }))
+                  }
+                  placeholder="Company name"
+                />
               </div>
 
               <div
@@ -337,58 +346,49 @@ const CompanyProfile = () => {
                     edit
                   </span>
                 </div>
-                {editingSection === "industry" ? (
-                  <select
-                    className={fieldInputClass}
-                    value={draftProfile.category_id ?? ""}
-                    onChange={(e) =>
-                      setDraftProfile((prev) => ({
-                        ...prev,
-                        category_id: e.target.value
-                          ? Number(e.target.value)
-                          : null,
-                      }))
-                    }
-                    onClick={(e) => e.stopPropagation()}
-                    autoFocus
-                  >
-                    <option value="">Select industry</option>
-                    {categories.map((category) => (
-                      <option
-                        key={category.category_id}
-                        value={category.category_id}
-                      >
-                        {category.title}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <p className="text-on-surface">
-                    {categories.find(
-                      (category) =>
-                        category.category_id === draftProfile.category_id,
-                    )?.title || "Click to select industry"}
-                  </p>
-                )}
+                <select
+                  className={getFieldControlClass(editingSection, "industry")}
+                  value={draftProfile.category_id ?? ""}
+                  onChange={(e) =>
+                    setDraftProfile((prev) => ({
+                      ...prev,
+                      category_id: e.target.value
+                        ? Number(e.target.value)
+                        : null,
+                    }))
+                  }
+                  onClick={(e) => e.stopPropagation()}
+                  onFocus={() => setEditingSection("industry")}
+                >
+                  <option value="">Select industry</option>
+                  {categories.map((category) => (
+                    <option
+                      key={category.category_id}
+                      value={category.category_id}
+                    >
+                      {category.title}
+                    </option>
+                  ))}
+                </select>
               </div>
 
-              <div
-                className={`${fieldContainerClass} ${
-                  editingSection === "city" ? fieldContainerActiveClass : ""
-                }`}
-                onClick={() => handleSectionClick("city")}
-              >
-                <div className="flex justify-between items-start">
-                  <label className="block font-label text-xs font-bold uppercase tracking-widest text-slate-500">
-                    City
-                  </label>
-                  <span className="material-symbols-outlined text-slate-400 text-lg">
-                    edit
-                  </span>
-                </div>
-                {editingSection === "city" ? (
+              <div className="flex flex-col md:flex-row gap-6 items-start">
+                <div
+                  className={`${fieldContainerClass} md:w-[30%] w-full ${
+                    editingSection === "city" ? fieldContainerActiveClass : ""
+                  }`}
+                  onClick={() => handleSectionClick("city")}
+                >
+                  <div className="flex justify-between items-start">
+                    <label className="block font-label text-xs font-bold uppercase tracking-widest text-slate-500">
+                      City
+                    </label>
+                    <span className="material-symbols-outlined text-slate-400 text-lg">
+                      edit
+                    </span>
+                  </div>
                   <select
-                    className={fieldInputClass}
+                    className={getFieldControlClass(editingSection, "city")}
                     value={draftProfile.city_id ?? ""}
                     onChange={(e) =>
                       setDraftProfile((prev) => ({
@@ -397,7 +397,7 @@ const CompanyProfile = () => {
                       }))
                     }
                     onClick={(e) => e.stopPropagation()}
-                    autoFocus
+                    onFocus={() => setEditingSection("city")}
                   >
                     <option value="">Select city</option>
                     {cities.map((city) => (
@@ -406,13 +406,38 @@ const CompanyProfile = () => {
                       </option>
                     ))}
                   </select>
-                ) : (
-                  <p className="text-on-surface">
-                    {cities.find(
-                      (city) => city.city_id === draftProfile.city_id,
-                    )?.name || "Click to select city"}
-                  </p>
-                )}
+                </div>
+
+                <div
+                  className={`${fieldContainerClass} md:w-[70%] w-full ${
+                    editingSection === "address"
+                      ? fieldContainerActiveClass
+                      : ""
+                  }`}
+                  onClick={() => handleSectionClick("address")}
+                >
+                  <div className="flex justify-between items-start">
+                    <label className="block font-label text-xs font-bold uppercase tracking-widest text-slate-500">
+                      Address
+                    </label>
+                    <span className="material-symbols-outlined text-slate-400 text-lg">
+                      edit
+                    </span>
+                  </div>
+                  <input
+                    className={getFieldControlClass(editingSection, "address")}
+                    value={draftProfile.address}
+                    onClick={(e) => e.stopPropagation()}
+                    onFocus={() => setEditingSection("address")}
+                    onChange={(e) =>
+                      setDraftProfile((prev) => ({
+                        ...prev,
+                        address: e.target.value,
+                      }))
+                    }
+                    placeholder="Street, ward, district"
+                  />
+                </div>
               </div>
 
               <div
@@ -429,24 +454,19 @@ const CompanyProfile = () => {
                     edit
                   </span>
                 </div>
-                {editingSection === "website" ? (
-                  <input
-                    className={fieldInputClass}
-                    value={draftProfile.website}
-                    onClick={(e) => e.stopPropagation()}
-                    onChange={(e) =>
-                      setDraftProfile((prev) => ({
-                        ...prev,
-                        website: e.target.value,
-                      }))
-                    }
-                    autoFocus
-                  />
-                ) : (
-                  <p className="text-primary font-medium">
-                    {draftProfile.website || "Click to add website"}
-                  </p>
-                )}
+                <input
+                  className={getFieldControlClass(editingSection, "website")}
+                  value={draftProfile.website}
+                  onClick={(e) => e.stopPropagation()}
+                  onFocus={() => setEditingSection("website")}
+                  onChange={(e) =>
+                    setDraftProfile((prev) => ({
+                      ...prev,
+                      website: e.target.value,
+                    }))
+                  }
+                  placeholder="https://your-company.com"
+                />
               </div>
 
               <div
@@ -465,25 +485,23 @@ const CompanyProfile = () => {
                     edit
                   </span>
                 </div>
-                {editingSection === "description" ? (
-                  <textarea
-                    className={`${fieldInputClass} min-h-36`}
-                    value={draftProfile.description}
-                    onClick={(e) => e.stopPropagation()}
-                    onChange={(e) =>
-                      setDraftProfile((prev) => ({
-                        ...prev,
-                        description: e.target.value,
-                      }))
-                    }
-                    autoFocus
-                  />
-                ) : (
-                  <div className="bg-surface-container-low/50 rounded-xl p-6 text-on-surface leading-relaxed text-sm whitespace-pre-wrap">
-                    {draftProfile.description ||
-                      "Click to add company description"}
-                  </div>
-                )}
+                <textarea
+                  className={getFieldControlClass(
+                    editingSection,
+                    "description",
+                    "min-h-36",
+                  )}
+                  value={draftProfile.description}
+                  onClick={(e) => e.stopPropagation()}
+                  onFocus={() => setEditingSection("description")}
+                  onChange={(e) =>
+                    setDraftProfile((prev) => ({
+                      ...prev,
+                      description: e.target.value,
+                    }))
+                  }
+                  placeholder="Company description"
+                />
               </div>
 
               <div className="pt-6 flex flex-col md:flex-row justify-between items-center gap-4">
