@@ -46,6 +46,7 @@ model Company {
   created_at  DateTime @default(now())
   updated_at  DateTime @updatedAt
   city_id     Int?
+  address     String?
 
   user     User      @relation(fields: [user_id], references: [user_id])
   category Category? @relation(fields: [category_id], references: [category_id])
