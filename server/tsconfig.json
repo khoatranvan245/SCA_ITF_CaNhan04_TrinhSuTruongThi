@@ -5,7 +5,9 @@
     "moduleResolution": "bundler",
     "target": "ES2023",
     "strict": true,
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    "rootDir": ".",
+    "outDir": "dist"
   },
   "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "dist", "prisma.config.ts"]

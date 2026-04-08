@@ -57,6 +57,10 @@ const JobManagement = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [deletingJobId, setDeletingJobId] = useState<number | null>(null);
+  const [pendingDeleteJob, setPendingDeleteJob] = useState<RecruiterJob | null>(
+    null,
+  );
 
   const rawUser = useMemo(() => localStorage.getItem("user"), []);
 
@@ -122,6 +126,57 @@ const JobManagement = () => {
         job.location.toLowerCase().includes(query),
     );
   }, [jobs, searchQuery]);
+
+  const handleDeleteJob = (job: RecruiterJob) => {
+    setPendingDeleteJob(job);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!userId) {
+      setError("Invalid session. Please login again.");
+      return;
+    }
+
+    if (!pendingDeleteJob) {
+      return;
+    }
+
+    setDeletingJobId(pendingDeleteJob.job_id);
+    setError("");
+
+    try {
+      const response = await fetch(
+        `http://localhost:3000/api/jobs/recruiter/${userId}/${pendingDeleteJob.job_id}`,
+        {
+          method: "DELETE",
+        },
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.message || "Failed to delete job");
+        return;
+      }
+
+      setJobs((current) =>
+        current.filter((item) => item.job_id !== pendingDeleteJob.job_id),
+      );
+      setPendingDeleteJob(null);
+    } catch (deleteError) {
+      console.error("Delete job error:", deleteError);
+      setError("An error occurred while deleting the job.");
+    } finally {
+      setDeletingJobId(null);
+    }
+  };
+
+  const handleCancelDelete = () => {
+    if (deletingJobId !== null) {
+      return;
+    }
+    setPendingDeleteJob(null);
+  };
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -263,11 +318,15 @@ const JobManagement = () => {
                             </span>
                           </button>
                           <button
-                            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-error-container hover:text-error text-secondary transition-colors"
+                            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-error-container hover:text-error text-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             title="Delete"
+                            onClick={() => handleDeleteJob(job)}
+                            disabled={deletingJobId === job.job_id}
                           >
                             <span className="material-symbols-outlined text-lg">
-                              delete
+                              {deletingJobId === job.job_id
+                                ? "hourglass_top"
+                                : "delete"}
                             </span>
                           </button>
                         </div>
@@ -308,6 +367,36 @@ const JobManagement = () => {
           </div>
         </div>
       </main>
+      {pendingDeleteJob && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-4">
+          <div className="w-full max-w-md rounded-2xl bg-surface-container-lowest border border-outline-variant/20 shadow-xl p-6">
+            <h3 className="text-lg font-bold text-primary mb-2">
+              Confirm Delete
+            </h3>
+            <p className="text-sm text-secondary mb-6">
+              Are you sure you want to delete "{pendingDeleteJob.title}"?
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                className="px-4 py-2 rounded-lg border border-outline-variant/30 text-secondary hover:bg-surface-container-low transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={handleCancelDelete}
+                disabled={deletingJobId !== null}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="px-4 py-2 rounded-lg bg-error text-white hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={handleConfirmDelete}
+                disabled={deletingJobId !== null}
+              >
+                {deletingJobId !== null ? "Deleting..." : "Confirm"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Footer  */}
       <Footer />
     </div>
