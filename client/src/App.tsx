@@ -54,7 +54,8 @@ const App = () => {
 
         <Route element={<RecruiterPrivateRoute />}>
           <Route path="/company-profile" element={<CompanyProfile />} />
-          <Route path="/job-management" element={<JobManagement />}>
+          <Route path="/job-management" element={<Outlet />}>
+            <Route index element={<JobManagement />} />
             <Route path="post" element={<JobPost />} />
           </Route>
           <Route
