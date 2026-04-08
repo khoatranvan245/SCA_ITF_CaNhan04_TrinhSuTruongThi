@@ -12,6 +12,7 @@ import RecruiterLogin from "./pages/RecruiterLogin";
 import JobListing from "./pages/JobListing";
 import CompanyProfile from "./pages/CompanyProfile";
 import JobManagement from "./pages/JobManagement";
+import JobPost from "./pages/JobPost";
 import ApplicationManagement from "./pages/ApplicationManagement";
 
 type StoredUser = {
@@ -53,7 +54,9 @@ const App = () => {
 
         <Route element={<RecruiterPrivateRoute />}>
           <Route path="/company-profile" element={<CompanyProfile />} />
-          <Route path="/job-management" element={<JobManagement />} />
+          <Route path="/job-management" element={<JobManagement />}>
+            <Route path="post" element={<JobPost />} />
+          </Route>
           <Route
             path="/application-management"
             element={<ApplicationManagement />}
