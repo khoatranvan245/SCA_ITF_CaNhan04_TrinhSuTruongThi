@@ -78,6 +78,10 @@ const Navbar = () => {
     navigate("/recruiter-login");
   };
 
+  const handleFindJobs = () => {
+    navigate("/job-listing");
+  };
+
   const handleRecruiterMenuNavigate = (path: string) => {
     setIsRecruiterMenuOpen(false);
     navigate(path);
@@ -85,7 +89,7 @@ const Navbar = () => {
 
   return (
     <header className="bg-[#f7f9fb] dark:bg-slate-900 sticky top-0 z-50 w-full">
-      <div className="flex justify-between items-center px-12 py-6 max-w-360 mx-auto">
+      <div className="flex justify-between items-center px-12 py-4 max-w-360 mx-auto">
         <div className="flex items-center gap-12">
           <a
             className="text-2xl font-bold tracking-tighter text-primary dark:text-white"
@@ -95,19 +99,23 @@ const Navbar = () => {
           </a>
           <nav className="hidden lg:flex items-center gap-8 font-manrope text-base tracking-tight">
             <a
-              className="text-primary dark:text-white font-semibold border-b-2 border-primary dark:border-blue-400 pb-1 transition-all"
+              className="text-secondary dark:text-slate-400 font-semibold hover:text-primary dark:hover:text-white transition-colors"
               href="#"
+              onClick={(event) => {
+                event.preventDefault();
+                handleFindJobs();
+              }}
             >
               Find Jobs
             </a>
             <a
-              className="text-secondary dark:text-slate-400 hover:text-primary dark:hover:text-white transition-colors font-medium"
+              className="text-secondary dark:text-slate-400 hover:text-primary dark:hover:text-white transition-colors font-semibold"
               href="#"
             >
               Companies
             </a>
             <a
-              className="text-secondary dark:text-slate-400 font-medium hover:text-primary dark:hover:text-blue-200 transition-colors"
+              className="text-secondary dark:text-slate-400 font-semibold hover:text-primary dark:hover:text-blue-200 transition-colors"
               href="#"
             >
               About
