@@ -23,6 +23,35 @@ type StoredUser = {
   };
 };
 
+const getStoredUser = () => {
+  const rawUser = localStorage.getItem("user");
+
+  if (!rawUser) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(rawUser) as StoredUser;
+  } catch {
+    return null;
+  }
+};
+
+const getUserRole = () => {
+  const user = getStoredUser();
+  const roleTitle = user?.role?.title?.toLowerCase();
+
+  if (user?.role?.role_id === 2 || roleTitle === "recruiter") {
+    return "recruiter";
+  }
+
+  if (user?.role?.role_id === 3 || roleTitle === "candidate") {
+    return "candidate";
+  }
+
+  return null;
+};
+
 const RecruiterPrivateRoute = () => {
   const rawUser = localStorage.getItem("user");
 
@@ -44,6 +73,31 @@ const RecruiterPrivateRoute = () => {
   } catch {
     return <Navigate to="/recruiter-login" replace />;
   }
+};
+
+const PublicOnlyRoute = () => {
+  // Child routes decide whether to redirect based on role.
+  return <Outlet />;
+};
+
+const CandidateLoginRoute = () => {
+  const role = getUserRole();
+
+  if (role === "candidate") {
+    return <Navigate to="/" replace />;
+  }
+
+  return <CandidateLogin />;
+};
+
+const RecruiterLoginRoute = () => {
+  const role = getUserRole();
+
+  if (role === "recruiter") {
+    return <Navigate to="/" replace />;
+  }
+
+  return <RecruiterLogin />;
 };
 
 const App = () => {
@@ -68,8 +122,10 @@ const App = () => {
 
         <Route path="/candidate-signup" element={<CandidateSignUp />} />
         <Route path="/recruiter-signup" element={<RecruiterSignUp />} />
-        <Route path="/candidate-login" element={<CandidateLogin />} />
-        <Route path="/recruiter-login" element={<RecruiterLogin />} />
+        <Route element={<PublicOnlyRoute />}>
+          <Route path="/candidate-login" element={<CandidateLoginRoute />} />
+          <Route path="/recruiter-login" element={<RecruiterLoginRoute />} />
+        </Route>
       </Routes>
     </BrowserRouter>
   );
