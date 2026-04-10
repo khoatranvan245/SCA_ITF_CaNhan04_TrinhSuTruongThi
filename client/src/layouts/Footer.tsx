@@ -1,7 +1,7 @@
 const Footer = () => {
   return (
     <footer className="bg-[#f7f9fb] dark:bg-slate-900 border-t border-outline-variant/15 mt-20">
-      <div className="max-w-360 mx-auto px-12 py-16">
+      <div className="max-w-360 mx-auto px-12 py-10">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-8">
           <div>
             <div className="text-2xl font-bold text-white mb-4">JobNest</div>
