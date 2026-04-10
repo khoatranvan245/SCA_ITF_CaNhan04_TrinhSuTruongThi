@@ -10,6 +10,7 @@ import RecruiterSignUp from "./pages/RecruiterSignUp";
 import CandidateLogin from "./pages/CandidateLogin";
 import RecruiterLogin from "./pages/RecruiterLogin";
 import JobListing from "./pages/JobListing";
+import JobDetail from "./pages/JobDetail";
 import CompanyProfile from "./pages/CompanyProfile";
 import JobManagement from "./pages/JobManagement";
 import JobPost from "./pages/JobPost";
@@ -106,6 +107,7 @@ const App = () => {
       <Routes>
         <Route path="/" element={<JobListing />} />
         <Route path="/job-listing" element={<JobListing />} />
+        <Route path="/jobs/:jobId" element={<JobDetail />} />
 
         <Route element={<RecruiterPrivateRoute />}>
           <Route path="/company-profile" element={<CompanyProfile />} />

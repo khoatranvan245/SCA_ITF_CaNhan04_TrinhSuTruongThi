@@ -76,14 +76,6 @@ const formatSalaryLabel = (salaryMin, salaryMax) => {
     }
     return "Salary negotiable";
 };
-const normalizeJobStatus = (status) => {
-    const statusStr = String(status).toLowerCase().trim();
-    const validStatuses = ["open", "closed", "pending", "expired"];
-    if (validStatuses.includes(statusStr)) {
-        return statusStr;
-    }
-    return "open"; // Default to open if invalid
-};
 export const getPublicJobs = async (_req, res) => {
     try {
         await prisma.$connect();
@@ -120,6 +112,58 @@ export const getPublicJobs = async (_req, res) => {
     }
     catch (error) {
         console.error("Get public jobs error:", error);
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        res
+            .status(500)
+            .json({ message: "Internal server error", error: errorMessage });
+    }
+};
+export const getPublicJobById = async (req, res) => {
+    try {
+        await prisma.$connect();
+        const jobId = parseJobId(req.params.jobId);
+        if (!jobId) {
+            res.status(400).json({ message: "Invalid job id" });
+            return;
+        }
+        const job = await prisma.job.findUnique({
+            where: { job_id: jobId },
+            include: {
+                company: {
+                    include: {
+                        city: true,
+                    },
+                },
+                category: true,
+                job_skills: {
+                    include: {
+                        skill: true,
+                    },
+                },
+            },
+        });
+        if (!job) {
+            res.status(404).json({ message: "Job not found" });
+            return;
+        }
+        res.status(200).json({
+            job: {
+                job_id: job.job_id,
+                title: job.title,
+                company_name: job.company.name,
+                category: job.category?.title ?? "General",
+                location: job.company.city?.name || job.company.address || "Remote",
+                created_at: job.created_at,
+                salary_label: formatSalaryLabel(job.salary_min, job.salary_max),
+                description: job.description,
+                requirements: job.requirements,
+                benefits: job.benefits,
+                skills: job.job_skills.map((item) => item.skill.name),
+            },
+        });
+    }
+    catch (error) {
+        console.error("Get public job by id error:", error);
         const errorMessage = error instanceof Error ? error.message : "Unknown error";
         res
             .status(500)
@@ -163,7 +207,7 @@ export const getRecruiterJobs = async (req, res) => {
         const mappedJobs = jobs.map((job) => ({
             job_id: job.job_id,
             title: job.title,
-            status: normalizeJobStatus(job.status),
+            status: job.status,
             created_at: job.created_at,
             category: job.category?.title ?? "General",
             applicants_count: job._count.applications,

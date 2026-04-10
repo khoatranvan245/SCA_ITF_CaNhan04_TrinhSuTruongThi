@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Navbar from "../layouts/Navbar";
 
 type PublicJob = {
@@ -35,6 +36,7 @@ const getPostedLabel = (createdAt: string) => {
 };
 
 const JobListing = () => {
+  const navigate = useNavigate();
   const [jobs, setJobs] = useState<PublicJob[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -192,7 +194,8 @@ const JobListing = () => {
               return (
                 <div
                   key={job.job_id}
-                  className="bg-white p-6 rounded-2xl border border-slate-200 hover:border-surface-tint hover:shadow-xl transition-all duration-300 relative"
+                  className="bg-white p-6 rounded-2xl border border-slate-200 hover:border-surface-tint hover:shadow-xl transition-all duration-300 relative cursor-pointer"
+                  onClick={() => navigate(`/jobs/${job.job_id}`)}
                 >
                   <div className="flex gap-6 mb-6">
                     <div className="h-24 w-24 rounded-xl border border-slate-100 bg-white flex items-center justify-center shrink-0 shadow-sm overflow-hidden p-2">

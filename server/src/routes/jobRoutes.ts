@@ -1,5 +1,6 @@
 import express from "express";
 import { getPublicJobs } from "../controllers/jobController";
+import { getPublicJobById } from "../controllers/jobController";
 import { getRecruiterJobs } from "../controllers/jobController";
 import { createRecruiterJob } from "../controllers/jobController";
 import { searchSkills } from "../controllers/jobController";
@@ -11,6 +12,7 @@ const router = express.Router();
 
 router.get("/", getPublicJobs);
 router.get("/skills", searchSkills);
+router.get("/:jobId", getPublicJobById);
 router.get("/recruiter/:userId", getRecruiterJobs);
 router.post("/recruiter/:userId", createRecruiterJob);
 router.get("/recruiter/:userId/:jobId", getRecruiterJobById);
