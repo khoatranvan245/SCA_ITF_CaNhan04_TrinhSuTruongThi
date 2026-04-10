@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../layouts/Navbar";
+import Footer from "../layouts/Footer";
 
 type PublicJob = {
   job_id: number;
@@ -293,93 +294,7 @@ const JobListing = () => {
         )}
       </main>
 
-      <footer className="bg-[#f7f9fb] dark:bg-slate-950 w-full mt-24 border-t border-outline-variant/15">
-        <div className="max-w-360 mx-auto px-12 py-12 flex flex-col gap-12">
-          <div className="flex flex-row justify-between items-start">
-            <div className="flex flex-col gap-4">
-              <span className="text-2xl font-bold tracking-tighter text-primary dark:text-white">
-                JobNest
-              </span>
-              <p className="font-manrope text-sm text-secondary dark:text-slate-400 max-w-xs">
-                Curating the future of professional work with intelligence and
-                serenity.
-              </p>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-16">
-              <div className="flex flex-col gap-4">
-                <span className="font-bold text-primary dark:text-white text-sm uppercase tracking-widest">
-                  Platform
-                </span>
-                <a
-                  className="text-secondary dark:text-slate-400 hover:text-primary dark:hover:text-blue-300 transition-colors text-sm"
-                  href="#"
-                >
-                  Find Jobs
-                </a>
-                <a
-                  className="text-secondary dark:text-slate-400 hover:text-primary dark:hover:text-blue-300 transition-colors text-sm"
-                  href="#"
-                >
-                  Companies
-                </a>
-              </div>
-              <div className="flex flex-col gap-4">
-                <span className="font-bold text-primary dark:text-white text-sm uppercase tracking-widest">
-                  Employers
-                </span>
-                <a
-                  className="text-secondary dark:text-slate-400 hover:text-primary dark:hover:text-blue-300 transition-colors text-sm"
-                  href="#"
-                >
-                  Post a Job
-                </a>
-                <a
-                  className="text-secondary dark:text-slate-400 hover:text-primary dark:hover:text-blue-300 transition-colors text-sm"
-                  href="#"
-                >
-                  Hiring Solutions
-                </a>
-              </div>
-              <div className="flex flex-col gap-4">
-                <span className="font-bold text-primary dark:text-white text-sm uppercase tracking-widest">
-                  Legal
-                </span>
-                <a
-                  className="text-secondary dark:text-slate-400 hover:text-primary dark:hover:text-blue-300 transition-colors text-sm"
-                  href="#"
-                >
-                  Privacy Policy
-                </a>
-                <a
-                  className="text-secondary dark:text-slate-400 hover:text-primary dark:hover:text-blue-300 transition-colors text-sm"
-                  href="#"
-                >
-                  Terms of Service
-                </a>
-              </div>
-            </div>
-          </div>
-          <div className="flex flex-row justify-between items-center pt-10 border-t border-slate-200/50 dark:border-slate-800/50 font-manrope text-sm tracking-wide uppercase">
-            <p className="text-secondary dark:text-slate-400">
-              © 2024 JobNest Curator. All rights reserved.
-            </p>
-            <div className="flex gap-8">
-              <a
-                className="text-secondary dark:text-slate-500 hover:text-primary dark:hover:text-white transition-all duration-300"
-                href="#"
-              >
-                Cookie Settings
-              </a>
-              <a
-                className="text-secondary dark:text-slate-500 hover:text-primary dark:hover:text-white transition-all duration-300"
-                href="#"
-              >
-                Help Center
-              </a>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 };
