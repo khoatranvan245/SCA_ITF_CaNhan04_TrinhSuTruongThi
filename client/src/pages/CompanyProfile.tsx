@@ -66,6 +66,47 @@ const getFieldControlClass = (
     editingSection === section ? "border-primary" : "border-outline-variant/15"
   } ${extraClass}`;
 
+const normalizeEditorHtmlForStorage = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === "<p><br></p>") {
+    return "";
+  }
+
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(trimmed, "text/html");
+
+  // Quill can output lists as <ol><li data-list="bullet">...</li></ol>.
+  // Convert pure bullet groups to semantic <ul> so DB stores expected markup.
+  doc.querySelectorAll("ol").forEach((ol) => {
+    const listItems = Array.from(ol.children).filter(
+      (node): node is HTMLLIElement => node.tagName.toLowerCase() === "li",
+    );
+
+    if (listItems.length === 0) {
+      return;
+    }
+
+    const isPureBulletList = listItems.every(
+      (item) => item.getAttribute("data-list") === "bullet",
+    );
+
+    listItems.forEach((item) => {
+      const dataList = item.getAttribute("data-list");
+      if (dataList === "bullet" || dataList === "ordered") {
+        item.removeAttribute("data-list");
+      }
+    });
+
+    if (isPureBulletList) {
+      const ul = doc.createElement("ul");
+      ul.innerHTML = ol.innerHTML;
+      ol.replaceWith(ul);
+    }
+  });
+
+  return doc.body.innerHTML.trim();
+};
+
 const CompanyProfile = () => {
   const navigate = useNavigate();
   const formContainerRef = useRef<HTMLDivElement | null>(null);
@@ -209,6 +250,11 @@ const CompanyProfile = () => {
     setSuccess("");
 
     try {
+      const normalizedProfile = {
+        ...draftProfile,
+        description: normalizeEditorHtmlForStorage(draftProfile.description),
+      };
+
       const response = await fetch(
         `http://localhost:3000/api/company-profile/${userId}`,
         {
@@ -216,7 +262,7 @@ const CompanyProfile = () => {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify(draftProfile),
+          body: JSON.stringify(normalizedProfile),
         },
       );
 

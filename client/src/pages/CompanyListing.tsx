@@ -13,6 +13,24 @@ type CompanyListingItem = {
   since_year: number;
 };
 
+const toPlainText = (value: string | null | undefined): string => {
+  if (!value) {
+    return "";
+  }
+
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(value, "text/html");
+  return (doc.body.textContent || "").replace(/\s+/g, " ").trim();
+};
+
+const truncateText = (value: string, maxLength: number): string => {
+  if (value.length <= maxLength) {
+    return value;
+  }
+
+  return `${value.slice(0, maxLength).trimEnd()}...`;
+};
+
 const CompanyListing = () => {
   const navigate = useNavigate();
   const [companies, setCompanies] = useState<CompanyListingItem[]>([]);
@@ -165,9 +183,7 @@ const CompanyListing = () => {
               <div
                 key={company.company_id}
                 className="bg-white p-6 rounded-2xl border border-slate-200 hover:border-surface-tint hover:shadow-xl transition-all duration-300 relative cursor-pointer"
-                onClick={() =>
-                  navigate(`/company-listing?company=${company.company_id}`)
-                }
+                onClick={() => navigate(`/companies/${company.company_id}`)}
               >
                 <div className="flex gap-6 mb-6">
                   <div className="h-24 w-24 rounded-xl border border-slate-100 bg-white flex items-center justify-center shrink-0 shadow-sm overflow-hidden p-2">
@@ -195,8 +211,11 @@ const CompanyListing = () => {
                       </span>
                     </div>
                     <p className="text-on-surface-variant text-sm leading-relaxed max-w-3xl">
-                      {company.description ||
-                        "No company description provided."}
+                      {truncateText(
+                        toPlainText(company.description) ||
+                          "No company description provided.",
+                        200,
+                      )}
                     </p>
                   </div>
                 </div>

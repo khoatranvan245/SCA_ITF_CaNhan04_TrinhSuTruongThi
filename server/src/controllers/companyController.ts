@@ -12,6 +12,19 @@ function parseUserId(rawUserId: string | string[] | undefined): number | null {
   return userId;
 }
 
+function parseCompanyId(
+  rawCompanyId: string | string[] | undefined,
+): number | null {
+  const normalizedValue = Array.isArray(rawCompanyId)
+    ? rawCompanyId[0]
+    : rawCompanyId;
+  const companyId = Number(normalizedValue);
+  if (!Number.isInteger(companyId) || companyId <= 0) {
+    return null;
+  }
+  return companyId;
+}
+
 function parseCategoryId(rawCategoryId: unknown): number | null {
   if (rawCategoryId === null) {
     return null;
@@ -89,6 +102,71 @@ export const getPublicCompanies = async (_req: Request, res: Response) => {
     });
   } catch (error) {
     console.error("Get public companies error:", error);
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
+    res
+      .status(500)
+      .json({ message: "Internal server error", error: errorMessage });
+  }
+};
+
+export const getPublicCompanyById = async (req: Request, res: Response) => {
+  try {
+    await prisma.$connect();
+
+    const companyId = parseCompanyId(req.params.companyId);
+    if (!companyId) {
+      res.status(400).json({ message: "Invalid company id" });
+      return;
+    }
+
+    const company = await prisma.company.findUnique({
+      where: { company_id: companyId },
+      include: {
+        category: true,
+        city: true,
+        jobs: {
+          where: { status: "open" },
+          orderBy: { created_at: "desc" },
+          select: {
+            job_id: true,
+            title: true,
+            description: true,
+            salary_min: true,
+            salary_max: true,
+            created_at: true,
+          },
+        },
+      },
+    });
+
+    if (!company) {
+      res.status(404).json({ message: "Company not found" });
+      return;
+    }
+
+    res.status(200).json({
+      company: {
+        company_id: company.company_id,
+        name: company.name,
+        description: company.description,
+        website: company.website,
+        category: company.category?.title ?? "General",
+        location: company.city?.name || company.address || "Remote",
+        open_roles_count: company.jobs.length,
+        since_year: company.created_at.getFullYear(),
+        jobs: company.jobs.map((job) => ({
+          job_id: job.job_id,
+          title: job.title,
+          description: job.description,
+          salary_min: job.salary_min,
+          salary_max: job.salary_max,
+          created_at: job.created_at,
+        })),
+      },
+    });
+  } catch (error) {
+    console.error("Get public company by id error:", error);
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error";
     res
