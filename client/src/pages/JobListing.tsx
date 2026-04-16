@@ -7,6 +7,7 @@ type PublicJob = {
   job_id: number;
   title: string;
   company_name: string;
+  company_avatar_url: string | null;
   category: string;
   location: string;
   created_at: string;
@@ -200,9 +201,17 @@ const JobListing = () => {
                 >
                   <div className="flex gap-6 mb-6">
                     <div className="h-24 w-24 rounded-xl border border-slate-100 bg-white flex items-center justify-center shrink-0 shadow-sm overflow-hidden p-2">
-                      <span className="text-3xl font-extrabold text-blue-900">
-                        {job.company_name.charAt(0).toUpperCase()}
-                      </span>
+                      {job.company_avatar_url ? (
+                        <img
+                          src={job.company_avatar_url}
+                          alt={`${job.company_name} logo`}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-3xl font-extrabold text-blue-900">
+                          {job.company_name.charAt(0).toUpperCase()}
+                        </span>
+                      )}
                     </div>
                     <div className="grow">
                       <div className="flex justify-between items-start">

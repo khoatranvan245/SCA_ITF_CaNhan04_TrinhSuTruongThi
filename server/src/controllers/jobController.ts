@@ -1,5 +1,8 @@
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
+import { supabaseAdmin } from "../lib/supabaseAdmin";
+
+const AVATAR_BUCKET_NAME = "Avatar";
 
 const ROLE_RECRUITER = 2;
 
@@ -101,6 +104,68 @@ const formatSalaryLabel = (
   return "Salary negotiable";
 };
 
+function extractAvatarPath(avatarUrl: string): string | null {
+  const trimmed = avatarUrl.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  if (!trimmed.startsWith("http")) {
+    return trimmed.replace(/^\/+/, "");
+  }
+
+  try {
+    const parsed = new URL(trimmed);
+    const marker = `/${AVATAR_BUCKET_NAME}/`;
+    const markerIndex = parsed.pathname.indexOf(marker);
+
+    if (markerIndex === -1) {
+      return null;
+    }
+
+    const objectPath = parsed.pathname.slice(markerIndex + marker.length);
+    return decodeURIComponent(objectPath).replace(/^\/+/, "");
+  } catch {
+    return null;
+  }
+}
+
+function appendVersionParam(
+  avatarUrl: string,
+  updatedAt: Date,
+): string {
+  try {
+    const parsed = new URL(avatarUrl);
+    parsed.searchParams.set("v", String(updatedAt.getTime()));
+    return parsed.toString();
+  } catch {
+    return `${avatarUrl}?v=${updatedAt.getTime()}`;
+  }
+}
+
+async function formatAvatarUrl(
+  avatarUrl: string | null | undefined,
+  updatedAt: Date,
+): Promise<string | null> {
+  if (!avatarUrl) {
+    return null;
+  }
+
+  const avatarPath = extractAvatarPath(avatarUrl);
+
+  if (avatarPath) {
+    const { data, error } = await supabaseAdmin.storage
+      .from(AVATAR_BUCKET_NAME)
+      .createSignedUrl(avatarPath, 60 * 60 * 24 * 7);
+
+    if (!error && data?.signedUrl) {
+      return appendVersionParam(data.signedUrl, updatedAt);
+    }
+  }
+
+  return appendVersionParam(avatarUrl, updatedAt);
+}
+
 export const getPublicJobs = async (_req: Request, res: Response) => {
   try {
     await prisma.$connect();
@@ -124,18 +189,24 @@ export const getPublicJobs = async (_req: Request, res: Response) => {
       },
     });
 
-    res.status(200).json({
-      jobs: jobs.map((job) => ({
+    const jobsWithLogos = await Promise.all(
+      jobs.map(async (job) => ({
         job_id: job.job_id,
         title: job.title,
         company_name: job.company.name,
+        company_avatar_url: await formatAvatarUrl(
+          job.company.avatar_url,
+          job.company.updated_at,
+        ),
         category: job.category?.title ?? "General",
         location: job.company.city?.name || job.company.address || "Remote",
         created_at: job.created_at,
         salary_label: formatSalaryLabel(job.salary_min, job.salary_max),
         skills: job.job_skills.map((item) => item.skill.name),
       })),
-    });
+    );
+
+    res.status(200).json({ jobs: jobsWithLogos });
   } catch (error) {
     console.error("Get public jobs error:", error);
     const errorMessage =
@@ -183,6 +254,10 @@ export const getPublicJobById = async (req: Request, res: Response) => {
         job_id: job.job_id,
         title: job.title,
         company_name: job.company.name,
+        company_avatar_url: await formatAvatarUrl(
+          job.company.avatar_url,
+          job.company.updated_at,
+        ),
         category: job.category?.title ?? "General",
         location: job.company.city?.name || job.company.address || "Remote",
         created_at: job.created_at,
