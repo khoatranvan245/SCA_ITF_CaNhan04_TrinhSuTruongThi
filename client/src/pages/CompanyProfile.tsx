@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import Uppy, { type UppyFile } from "@uppy/core";
 import Footer from "../layouts/Footer";
 import Navbar from "../layouts/Navbar";
 import RichTextEditor from "../components/RichTextEditor";
@@ -19,6 +20,7 @@ type CompanyProfileData = {
   address: string;
   website: string;
   description: string;
+  avatar_url: string | null;
 };
 
 type CategoryOption = {
@@ -47,6 +49,7 @@ const emptyProfile: CompanyProfileData = {
   address: "",
   website: "",
   description: "",
+  avatar_url: null,
 };
 
 const fieldContainerClass =
@@ -110,9 +113,14 @@ const normalizeEditorHtmlForStorage = (value: string) => {
 const CompanyProfile = () => {
   const navigate = useNavigate();
   const formContainerRef = useRef<HTMLDivElement | null>(null);
+  const avatarInputRef = useRef<HTMLInputElement | null>(null);
+  const avatarObjectUrlRef = useRef<string | null>(null);
+  const persistedAvatarUrlRef = useRef<string>("");
   const [profile, setProfile] = useState<CompanyProfileData>(emptyProfile);
   const [draftProfile, setDraftProfile] =
     useState<CompanyProfileData>(emptyProfile);
+  const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string>("");
+  const [avatarFileName, setAvatarFileName] = useState<string>("");
   const [editingSection, setEditingSection] = useState<EditableSection>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -139,6 +147,18 @@ const CompanyProfile = () => {
   const isRecruiter =
     parsedUser?.role?.role_id === 2 ||
     parsedUser?.role?.title?.toLowerCase() === "recruiter";
+
+  const uppy = useMemo(
+    () =>
+      new Uppy({
+        restrictions: {
+          maxNumberOfFiles: 1,
+          allowedFileTypes: ["image/*"],
+          maxFileSize: 5 * 1024 * 1024,
+        },
+      }),
+    [],
+  );
 
   useEffect(() => {
     if (!userId || !isRecruiter) {
@@ -182,10 +202,13 @@ const CompanyProfile = () => {
           address: data.company?.address ?? "",
           website: data.company?.website ?? "",
           description: data.company?.description ?? "",
+          avatar_url: data.company?.avatar_url ?? null,
         };
 
         setProfile(normalizedProfile);
         setDraftProfile(normalizedProfile);
+        setAvatarPreviewUrl(normalizedProfile.avatar_url ?? "");
+        setAvatarFileName("");
 
         const rawCompany = localStorage.getItem("company");
         const parsedCompany = rawCompany ? JSON.parse(rawCompany) : {};
@@ -225,16 +248,108 @@ const CompanyProfile = () => {
     };
   }, [editingSection]);
 
+  useEffect(() => {
+    persistedAvatarUrlRef.current = profile.avatar_url ?? "";
+
+    if (uppy.getFiles().length === 0) {
+      setAvatarPreviewUrl(persistedAvatarUrlRef.current);
+    }
+  }, [profile.avatar_url, uppy]);
+
+  useEffect(() => {
+    const clearAvatarPreview = () => {
+      if (avatarObjectUrlRef.current) {
+        URL.revokeObjectURL(avatarObjectUrlRef.current);
+        avatarObjectUrlRef.current = null;
+      }
+      setAvatarPreviewUrl(persistedAvatarUrlRef.current);
+      setAvatarFileName("");
+    };
+
+    const handleFileAdded = (
+      file: UppyFile<Record<string, unknown>, Record<string, unknown>>,
+    ) => {
+      if (avatarObjectUrlRef.current) {
+        URL.revokeObjectURL(avatarObjectUrlRef.current);
+      }
+
+      if (!(file.data instanceof Blob)) {
+        return;
+      }
+
+      const nextPreviewUrl = URL.createObjectURL(file.data);
+      avatarObjectUrlRef.current = nextPreviewUrl;
+      setAvatarPreviewUrl(nextPreviewUrl);
+      setAvatarFileName(file.name);
+    };
+
+    const handleFileRemoved = () => {
+      if (uppy.getFiles().length === 0) {
+        clearAvatarPreview();
+      }
+    };
+
+    uppy.on("file-added", handleFileAdded);
+    uppy.on("file-removed", handleFileRemoved);
+    uppy.on("cancel-all", clearAvatarPreview);
+
+    return () => {
+      uppy.off("file-added", handleFileAdded);
+      uppy.off("file-removed", handleFileRemoved);
+      uppy.off("cancel-all", clearAvatarPreview);
+      clearAvatarPreview();
+      uppy.destroy();
+    };
+  }, [uppy]);
+
   const handleSectionClick = (section: EditableSection) => {
     setSuccess("");
     setEditingSection(section);
   };
 
+  const handleOpenAvatarPicker = () => {
+    avatarInputRef.current?.click();
+  };
+
+  const handleAvatarInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const nextFile = e.target.files?.[0];
+    if (!nextFile) {
+      return;
+    }
+
+    setError("");
+
+    uppy.getFiles().forEach((file) => {
+      uppy.removeFile(file.id);
+    });
+
+    try {
+      uppy.addFile({
+        name: nextFile.name,
+        type: nextFile.type,
+        data: nextFile,
+        source: "Local",
+        isRemote: false,
+      });
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to select avatar file.",
+      );
+    } finally {
+      e.target.value = "";
+    }
+  };
+
   const handleDiscard = () => {
+    uppy.getFiles().forEach((file) => {
+      uppy.removeFile(file.id);
+    });
     setDraftProfile(profile);
     setEditingSection(null);
     setError("");
     setSuccess("");
+    setAvatarPreviewUrl(profile.avatar_url ?? "");
+    setAvatarFileName("");
   };
 
   const handleSaveProfile = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -255,14 +370,19 @@ const CompanyProfile = () => {
         description: normalizeEditorHtmlForStorage(draftProfile.description),
       };
 
+      const formData = new FormData();
+      formData.append("profile", JSON.stringify(normalizedProfile));
+
+      const avatarFile = uppy.getFiles()[0]?.data;
+      if (avatarFile instanceof File) {
+        formData.append("avatar", avatarFile, avatarFile.name);
+      }
+
       const response = await fetch(
         `http://localhost:3000/api/company-profile/${userId}`,
         {
           method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(normalizedProfile),
+          body: formData,
         },
       );
 
@@ -280,12 +400,19 @@ const CompanyProfile = () => {
         address: data.company?.address ?? "",
         website: data.company?.website ?? "",
         description: data.company?.description ?? "",
+        avatar_url: data.company?.avatar_url ?? null,
       };
 
       setProfile(updatedProfile);
       setDraftProfile(updatedProfile);
       setEditingSection(null);
       setSuccess("Profile updated successfully.");
+      setAvatarPreviewUrl(updatedProfile.avatar_url ?? "");
+      setAvatarFileName("");
+
+      uppy.getFiles().forEach((file) => {
+        uppy.removeFile(file.id);
+      });
 
       const rawCompany = localStorage.getItem("company");
       const parsedCompany = rawCompany ? JSON.parse(rawCompany) : {};
@@ -349,6 +476,70 @@ const CompanyProfile = () => {
                   {success}
                 </div>
               )}
+
+              <div className="pb-2">
+                <input
+                  ref={avatarInputRef}
+                  type="file"
+                  accept="image/*,.svg"
+                  className="hidden"
+                  onChange={handleAvatarInputChange}
+                />
+
+                <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                  <button
+                    type="button"
+                    onClick={handleOpenAvatarPicker}
+                    className="w-24 h-24 rounded-lg bg-slate-300/70 flex items-center justify-center border border-slate-300 hover:bg-slate-300 transition-colors overflow-hidden cursor-pointer"
+                  >
+                    {avatarPreviewUrl ? (
+                      <img
+                        src={avatarPreviewUrl}
+                        alt="Company logo preview"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <svg
+                        aria-hidden="true"
+                        viewBox="0 0 24 24"
+                        className="w-8 h-8 text-slate-600"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                      >
+                        <rect x="3" y="11" width="8" height="9" />
+                        <rect x="13" y="7" width="8" height="13" />
+                        <path d="M6 14h2M6 17h2M9 14h2M9 17h2M16 10h2M16 13h2M16 16h2" />
+                      </svg>
+                    )}
+                  </button>
+
+                  <div className="space-y-1.5">
+                    <p className="text-lg font-semibold text-slate-900 leading-tight">
+                      Company Logo
+                    </p>
+                    <p className="uppercase tracking-[0.14em] text-[11px] text-slate-500">
+                      Recommended: 400x400px .png, .jpg or .svg
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleOpenAvatarPicker}
+                      className="text-sm font-semibold text-slate-900 hover:text-primary transition-colors break-all text-left cursor-pointer"
+                    >
+                      {avatarFileName || "Choose a logo file"}
+                    </button>
+                    {avatarFileName && (
+                      <button
+                        type="button"
+                        onClick={() => uppy.cancelAll()}
+                        className="block text-xs text-slate-500 hover:text-slate-800 transition-colors"
+                      >
+                        Remove logo
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
 
               <div
                 className={`${fieldContainerClass} ${

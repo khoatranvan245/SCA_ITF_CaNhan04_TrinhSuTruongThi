@@ -41,6 +41,7 @@ model Company {
   name        String
   description String?
   website     String?
+  avatar_url  String?
   category_id Int?
   user_id     Int
   created_at  DateTime @default(now())

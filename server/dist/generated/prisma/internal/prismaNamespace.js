@@ -109,6 +109,7 @@ export const CompanyScalarFieldEnum = {
     name: 'name',
     description: 'description',
     website: 'website',
+    avatar_url: 'avatar_url',
     category_id: 'category_id',
     user_id: 'user_id',
     created_at: 'created_at',

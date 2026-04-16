@@ -1,4 +1,6 @@
+import sharp from "sharp";
 import { prisma } from "../lib/prisma";
+import { supabaseAdmin } from "../lib/supabaseAdmin";
 const ROLE_RECRUITER = 2;
 function parseUserId(rawUserId) {
     const normalizedValue = Array.isArray(rawUserId) ? rawUserId[0] : rawUserId;
@@ -7,6 +9,16 @@ function parseUserId(rawUserId) {
         return null;
     }
     return userId;
+}
+function parseCompanyId(rawCompanyId) {
+    const normalizedValue = Array.isArray(rawCompanyId)
+        ? rawCompanyId[0]
+        : rawCompanyId;
+    const companyId = Number(normalizedValue);
+    if (!Number.isInteger(companyId) || companyId <= 0) {
+        return null;
+    }
+    return companyId;
 }
 function parseCategoryId(rawCategoryId) {
     if (rawCategoryId === null) {
@@ -27,6 +39,69 @@ function parseCityId(rawCityId) {
         return null;
     }
     return cityId;
+}
+const AVATAR_BUCKET_NAME = "Avatar";
+function formatAvatarUrl(avatarUrl, updatedAt) {
+    if (!avatarUrl) {
+        return null;
+    }
+    return `${avatarUrl}?v=${updatedAt.getTime()}`;
+}
+function parseProfilePayload(body) {
+    if (typeof body.profile === "string") {
+        try {
+            return JSON.parse(body.profile);
+        }
+        catch {
+            throw new Error("Invalid profile payload");
+        }
+    }
+    return body;
+}
+function buildAvatarFileName(companyId, createdAt) {
+    const creationStamp = createdAt.toISOString().slice(0, 10).replace(/-/g, "");
+    return `${companyId}-${creationStamp}.png`;
+}
+async function ensureAvatarBucketExists() {
+    const { data, error } = await supabaseAdmin.storage.listBuckets();
+    if (error) {
+        throw new Error(error.message);
+    }
+    const existingBucket = data.find((bucket) => bucket.name === AVATAR_BUCKET_NAME);
+    if (existingBucket) {
+        return;
+    }
+    const { error: createBucketError } = await supabaseAdmin.storage.createBucket(AVATAR_BUCKET_NAME, {
+        public: true,
+    });
+    if (createBucketError) {
+        throw new Error(createBucketError.message);
+    }
+}
+async function uploadCompanyAvatar(avatarFile, companyId, createdAt) {
+    await ensureAvatarBucketExists();
+    const fileName = buildAvatarFileName(companyId, createdAt);
+    const processedImage = await sharp(avatarFile.buffer)
+        .resize(256, 256, {
+        fit: "cover",
+        position: "centre",
+    })
+        .png({ compressionLevel: 9 })
+        .toBuffer();
+    const uploadPath = `companies/${fileName}`;
+    const { error: uploadError } = await supabaseAdmin.storage
+        .from(AVATAR_BUCKET_NAME)
+        .upload(uploadPath, processedImage, {
+        contentType: "image/png",
+        upsert: true,
+    });
+    if (uploadError) {
+        throw new Error(uploadError.message);
+    }
+    const { data } = supabaseAdmin.storage
+        .from(AVATAR_BUCKET_NAME)
+        .getPublicUrl(uploadPath);
+    return data.publicUrl;
 }
 export const getCategories = async (_req, res) => {
     try {
@@ -68,6 +143,7 @@ export const getPublicCompanies = async (_req, res) => {
                 company_id: company.company_id,
                 name: company.name,
                 description: company.description,
+                avatar_url: formatAvatarUrl(company.avatar_url, company.updated_at),
                 category: company.category?.title ?? "General",
                 location: company.city?.name || company.address || "Remote",
                 open_roles_count: company._count.jobs,
@@ -77,6 +153,67 @@ export const getPublicCompanies = async (_req, res) => {
     }
     catch (error) {
         console.error("Get public companies error:", error);
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        res
+            .status(500)
+            .json({ message: "Internal server error", error: errorMessage });
+    }
+};
+export const getPublicCompanyById = async (req, res) => {
+    try {
+        await prisma.$connect();
+        const companyId = parseCompanyId(req.params.companyId);
+        if (!companyId) {
+            res.status(400).json({ message: "Invalid company id" });
+            return;
+        }
+        const company = await prisma.company.findUnique({
+            where: { company_id: companyId },
+            include: {
+                category: true,
+                city: true,
+                jobs: {
+                    where: { status: "open" },
+                    orderBy: { created_at: "desc" },
+                    select: {
+                        job_id: true,
+                        title: true,
+                        description: true,
+                        salary_min: true,
+                        salary_max: true,
+                        created_at: true,
+                    },
+                },
+            },
+        });
+        if (!company) {
+            res.status(404).json({ message: "Company not found" });
+            return;
+        }
+        res.status(200).json({
+            company: {
+                company_id: company.company_id,
+                name: company.name,
+                description: company.description,
+                website: company.website,
+                avatar_url: formatAvatarUrl(company.avatar_url, company.updated_at),
+                category: company.category?.title ?? "General",
+                location: company.city?.name || company.address || "Remote",
+                open_roles_count: company.jobs.length,
+                since_year: company.created_at.getFullYear(),
+                jobs: company.jobs.map((job) => ({
+                    job_id: job.job_id,
+                    title: job.title,
+                    description: job.description,
+                    salary_min: job.salary_min,
+                    salary_max: job.salary_max,
+                    created_at: job.created_at,
+                })),
+            },
+        });
+    }
+    catch (error) {
+        console.error("Get public company by id error:", error);
         const errorMessage = error instanceof Error ? error.message : "Unknown error";
         res
             .status(500)
@@ -127,7 +264,12 @@ export const getCompanyProfile = async (req, res) => {
             res.status(404).json({ message: "Company profile not found" });
             return;
         }
-        res.status(200).json({ company });
+        res.status(200).json({
+            company: {
+                ...company,
+                avatar_url: formatAvatarUrl(company.avatar_url, company.updated_at),
+            },
+        });
     }
     catch (error) {
         console.error("Get company profile error:", error);
@@ -160,7 +302,18 @@ export const updateCompanyProfile = async (req, res) => {
             res.status(404).json({ message: "Company profile not found" });
             return;
         }
-        const { name, website, description, category_id, city_id, address } = req.body;
+        const avatarFile = req.file;
+        let profilePayload;
+        try {
+            profilePayload = parseProfilePayload(req.body);
+        }
+        catch (error) {
+            res.status(400).json({
+                message: error instanceof Error ? error.message : "Invalid profile payload",
+            });
+            return;
+        }
+        const { name, website, description, category_id, city_id, address } = profilePayload;
         if (typeof name === "string" && !name.trim()) {
             res.status(400).json({ message: "Company name cannot be empty" });
             return;
@@ -193,6 +346,9 @@ export const updateCompanyProfile = async (req, res) => {
                 return;
             }
         }
+        const avatarUrl = avatarFile
+            ? await uploadCompanyAvatar(avatarFile, existingCompany.company_id, existingCompany.created_at)
+            : existingCompany.avatar_url;
         const updatedCompany = await prisma.company.update({
             where: { company_id: existingCompany.company_id },
             data: {
@@ -202,6 +358,7 @@ export const updateCompanyProfile = async (req, res) => {
                 ...(typeof description === "string"
                     ? { description: description.trim() }
                     : {}),
+                ...(avatarFile ? { avatar_url: avatarUrl } : {}),
                 ...(category_id !== undefined
                     ? { category_id: parseCategoryId(category_id) }
                     : {}),
@@ -211,7 +368,10 @@ export const updateCompanyProfile = async (req, res) => {
         });
         res.status(200).json({
             message: "Company profile updated successfully",
-            company: updatedCompany,
+            company: {
+                ...updatedCompany,
+                avatar_url: formatAvatarUrl(updatedCompany.avatar_url, updatedCompany.updated_at),
+            },
         });
     }
     catch (error) {

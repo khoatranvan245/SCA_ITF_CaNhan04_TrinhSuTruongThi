@@ -7,6 +7,7 @@ import {
   getPublicCompanies,
   updateCompanyProfile,
 } from "../controllers/companyController";
+import { upload } from "../middleware/upload";
 
 const router = express.Router();
 
@@ -15,6 +16,6 @@ router.get("/cities", getCities);
 router.get("/listing", getPublicCompanies);
 router.get("/detail/:companyId", getPublicCompanyById);
 router.get("/:userId", getCompanyProfile);
-router.put("/:userId", updateCompanyProfile);
+router.put("/:userId", upload.single("avatar"), updateCompanyProfile);
 
 export default router;

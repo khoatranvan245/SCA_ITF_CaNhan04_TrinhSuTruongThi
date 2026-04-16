@@ -3,6 +3,7 @@ import cors from "cors";
 import authRoutes from "./routes/authRoutes";
 import companyRoutes from "./routes/companyRoutes";
 import jobRoutes from "./routes/jobRoutes";
+import candidateRoutes from "./routes/candidateRoutes";
 const app = express();
 const PORT = process.env.PORT || 3000;
 app.use(cors());
@@ -13,6 +14,7 @@ app.get("/", async (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/company-profile", companyRoutes);
 app.use("/api/jobs", jobRoutes);
+app.use("/api/candidate-profile", candidateRoutes);
 app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
 });
