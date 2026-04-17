@@ -229,6 +229,7 @@ export const getPublicJobById = async (req: Request, res: Response) => {
       include: {
         company: {
           include: {
+            category: true,
             city: true,
           },
         },
@@ -256,6 +257,7 @@ export const getPublicJobById = async (req: Request, res: Response) => {
           job.company.avatar_url,
           job.company.updated_at,
         ),
+        company_category: job.company.category?.title ?? "General",
         category: job.category?.title ?? "General",
         location: job.company.city?.name || job.company.address || "Remote",
         created_at: job.created_at,

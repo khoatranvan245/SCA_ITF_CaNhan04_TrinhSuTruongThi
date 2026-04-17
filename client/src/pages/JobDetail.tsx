@@ -9,6 +9,7 @@ type JobDetailData = {
   company_id: number;
   company_name: string;
   company_avatar_url: string | null;
+  company_category: string;
   category: string;
   location: string;
   created_at: string;
@@ -333,7 +334,7 @@ const JobDetail = () => {
                         {job.company_name}
                       </Link>
                       <p className="text-xs text-secondary font-medium uppercase tracking-wider mt-1">
-                        {job.category}
+                        {job.company_category}
                       </p>
                     </div>
                   </div>
