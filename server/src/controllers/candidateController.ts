@@ -1,7 +1,9 @@
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
+import { supabaseAdmin } from "../lib/supabaseAdmin";
 
 const ROLE_CANDIDATE = 1;
+const CV_BUCKET_NAME = "CV";
 
 function normalizeSkillName(value: string): string {
   return value
@@ -35,6 +37,58 @@ function parseCityId(rawCityId: unknown): number | null {
   }
 
   return cityId;
+}
+
+function sanitizeFileName(fileName: string): string {
+  return fileName
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9._-]/g, "_")
+    .replace(/_+/g, "_")
+    .slice(0, 120);
+}
+
+function extractResumePath(fileUrl: string): string | null {
+  const trimmed = fileUrl.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  if (!trimmed.startsWith("http")) {
+    return trimmed.replace(/^\/+/, "");
+  }
+
+  try {
+    const parsed = new URL(trimmed);
+    const marker = `/${CV_BUCKET_NAME}/`;
+    const markerIndex = parsed.pathname.indexOf(marker);
+
+    if (markerIndex === -1) {
+      return null;
+    }
+
+    const objectPath = parsed.pathname.slice(markerIndex + marker.length);
+    return decodeURIComponent(objectPath).replace(/^\/+/, "");
+  } catch {
+    return null;
+  }
+}
+
+async function toSignedResumeUrl(fileUrl: string): Promise<string> {
+  const resumePath = extractResumePath(fileUrl);
+  if (!resumePath) {
+    return fileUrl;
+  }
+
+  const { data, error } = await supabaseAdmin.storage
+    .from(CV_BUCKET_NAME)
+    .createSignedUrl(resumePath, 60 * 60 * 24 * 7);
+
+  if (error || !data?.signedUrl) {
+    return fileUrl;
+  }
+
+  return data.signedUrl;
 }
 
 export const getCandidateCities = async (_req: Request, res: Response) => {
@@ -84,6 +138,9 @@ export const getCandidateProfile = async (req: Request, res: Response) => {
       where: { user_id: userId },
       include: {
         city: true,
+        resumes: {
+          orderBy: { uploaded_at: "desc" },
+        },
         candidate_skills: {
           include: {
             skill: true,
@@ -97,6 +154,14 @@ export const getCandidateProfile = async (req: Request, res: Response) => {
       return;
     }
 
+    const resumes = await Promise.all(
+      candidate.resumes.map(async (resume) => ({
+        resume_id: resume.resume_id,
+        file_url: await toSignedResumeUrl(resume.file_url),
+        uploaded_at: resume.uploaded_at,
+      })),
+    );
+
     res.status(200).json({
       candidate: {
         candidate_id: candidate.candidate_id,
@@ -106,6 +171,7 @@ export const getCandidateProfile = async (req: Request, res: Response) => {
         experience_years: candidate.experience_years,
         city_id: candidate.city_id,
         city: candidate.city,
+        resumes,
         skills: candidate.candidate_skills.map((item) => item.skill.name),
       },
       user: {
@@ -314,6 +380,182 @@ export const updateCandidateProfile = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error("Update candidate profile error:", error);
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
+    res
+      .status(500)
+      .json({ message: "Internal server error", error: errorMessage });
+  }
+};
+
+export const uploadCandidateResume = async (req: Request, res: Response) => {
+  try {
+    await prisma.$connect();
+
+    const userId = parseUserId(req.params.userId);
+    if (!userId) {
+      res.status(400).json({ message: "Invalid user id" });
+      return;
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { user_id: userId },
+      include: { role: true },
+    });
+
+    if (!user || user.role_id !== ROLE_CANDIDATE) {
+      res.status(403).json({ message: "Access denied" });
+      return;
+    }
+
+    const candidate = await prisma.candidate.findFirst({
+      where: { user_id: userId },
+      include: {
+        resumes: {
+          orderBy: { uploaded_at: "desc" },
+        },
+      },
+    });
+
+    if (!candidate) {
+      res.status(404).json({ message: "Candidate profile not found" });
+      return;
+    }
+
+    const file = req.file;
+    if (!file) {
+      res.status(400).json({ message: "Please select a CV file to upload" });
+      return;
+    }
+
+    const allowedMimeTypes = new Set([
+      "application/pdf",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ]);
+
+    if (!allowedMimeTypes.has(file.mimetype)) {
+      res.status(400).json({
+        message: "Only PDF, DOC, or DOCX files are supported",
+      });
+      return;
+    }
+
+    const extension = (() => {
+      const lower = file.originalname.toLowerCase();
+      if (lower.endsWith(".pdf")) return "pdf";
+      if (lower.endsWith(".docx")) return "docx";
+      if (lower.endsWith(".doc")) return "doc";
+      return file.mimetype === "application/pdf"
+        ? "pdf"
+        : file.mimetype.includes("wordprocessingml")
+          ? "docx"
+          : "doc";
+    })();
+
+    const baseName = sanitizeFileName(
+      file.originalname.replace(/\.[^.]+$/, ""),
+    );
+    const objectPath = `candidate-${candidate.candidate_id}/${Date.now()}-${baseName || "resume"}.${extension}`;
+
+    const { error: uploadError } = await supabaseAdmin.storage
+      .from(CV_BUCKET_NAME)
+      .upload(objectPath, file.buffer, {
+        contentType: file.mimetype,
+        upsert: false,
+      });
+
+    if (uploadError) {
+      res.status(500).json({ message: "Failed to upload CV" });
+      return;
+    }
+
+    const createdResume = await prisma.resume.create({
+      data: {
+        candidate_id: candidate.candidate_id,
+        file_url: objectPath,
+      },
+    });
+
+    const signedUrl = await toSignedResumeUrl(createdResume.file_url);
+
+    res.status(200).json({
+      message: "CV uploaded successfully",
+      resume: {
+        resume_id: createdResume.resume_id,
+        file_url: signedUrl,
+        uploaded_at: createdResume.uploaded_at,
+      },
+    });
+  } catch (error) {
+    console.error("Upload candidate resume error:", error);
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
+    res
+      .status(500)
+      .json({ message: "Internal server error", error: errorMessage });
+  }
+};
+
+export const deleteCandidateResume = async (req: Request, res: Response) => {
+  try {
+    await prisma.$connect();
+
+    const userId = parseUserId(req.params.userId);
+    if (!userId) {
+      res.status(400).json({ message: "Invalid user id" });
+      return;
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { user_id: userId },
+      include: { role: true },
+    });
+
+    if (!user || user.role_id !== ROLE_CANDIDATE) {
+      res.status(403).json({ message: "Access denied" });
+      return;
+    }
+
+    const resumeId = Number(req.params.resumeId);
+    if (!Number.isInteger(resumeId) || resumeId <= 0) {
+      res.status(400).json({ message: "Invalid resume id" });
+      return;
+    }
+
+    const candidate = await prisma.candidate.findFirst({
+      where: { user_id: userId },
+      include: {
+        resumes: true,
+      },
+    });
+
+    if (!candidate) {
+      res.status(404).json({ message: "Candidate profile not found" });
+      return;
+    }
+
+    const targetResume = candidate.resumes.find(
+      (resume) => resume.resume_id === resumeId,
+    );
+
+    if (!targetResume) {
+      res.status(404).json({ message: "Resume not found" });
+      return;
+    }
+
+    const resumePath = extractResumePath(targetResume.file_url);
+    if (resumePath) {
+      await supabaseAdmin.storage.from(CV_BUCKET_NAME).remove([resumePath]);
+    }
+
+    await prisma.resume.delete({
+      where: { resume_id: targetResume.resume_id },
+    });
+
+    res.status(200).json({ message: "CV deleted successfully" });
+  } catch (error) {
+    console.error("Delete candidate resume error:", error);
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error";
     res

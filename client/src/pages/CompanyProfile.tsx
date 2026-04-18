@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Uppy, { type UppyFile } from "@uppy/core";
 import RichTextEditor from "../components/RichTextEditor";
+import ToastNotifications from "../components/ToastNotifications";
 
 type StoredUser = {
   user_id?: number;
@@ -426,6 +427,43 @@ const CompanyProfile = () => {
     }
   };
 
+  const notifications = useMemo(
+    () =>
+      [
+        error
+          ? {
+              id: "company-profile-error",
+              message: error,
+              variant: "error" as const,
+            }
+          : null,
+        success
+          ? {
+              id: "company-profile-success",
+              message: success,
+              variant: "success" as const,
+            }
+          : null,
+      ].filter(
+        (
+          item,
+        ): item is { id: string; message: string; variant: "error" | "success" } =>
+          item !== null,
+      ),
+    [error, success],
+  );
+
+  const handleDismissNotification = useCallback((id: string) => {
+    if (id === "company-profile-error") {
+      setError("");
+      return;
+    }
+
+    if (id === "company-profile-success") {
+      setSuccess("");
+    }
+  }, []);
+
   if (isLoading) {
     return (
       <main className="pt-32 pb-24 px-6 text-on-surface">
@@ -439,8 +477,15 @@ const CompanyProfile = () => {
   }
 
   return (
-    <main className="pt-32 pb-24 px-6 text-on-surface antialiased">
-      <div className="max-w-3xl mx-auto">
+    <>
+      <ToastNotifications
+        notifications={notifications}
+        onDismiss={handleDismissNotification}
+        autoHideMs={5000}
+      />
+
+      <main className="pt-32 pb-24 px-6 text-on-surface antialiased">
+        <div className="max-w-3xl mx-auto">
         <div className="mb-12">
           <h1 className="text-[3.5rem] font-bold tracking-tight text-primary mb-2">
             Company Management
@@ -456,18 +501,6 @@ const CompanyProfile = () => {
           className="bg-surface-container-lowest rounded-xl p-8 md:p-12 shadow-[0_40px_60px_-5px_rgba(25,28,30,0.06)] border border-outline-variant/15"
         >
           <form className="space-y-10" onSubmit={handleSaveProfile}>
-            {error && (
-              <div className="bg-red-100 border border-red-300 text-red-700 px-4 py-3 rounded-xl text-sm">
-                {error}
-              </div>
-            )}
-
-            {success && (
-              <div className="bg-green-100 border border-green-300 text-green-700 px-4 py-3 rounded-xl text-sm">
-                {success}
-              </div>
-            )}
-
             <div className="pb-2">
               <input
                 ref={avatarInputRef}
@@ -728,7 +761,8 @@ const CompanyProfile = () => {
           </form>
         </div>
       </div>
-    </main>
+      </main>
+    </>
   );
 };
 
