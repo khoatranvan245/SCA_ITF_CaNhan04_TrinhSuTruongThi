@@ -10,9 +10,11 @@ type JobDetailData = {
   company_name: string;
   company_avatar_url: string | null;
   company_category: string;
+  company_address: string;
   category: string;
   location: string;
   created_at: string;
+  expiration_date: string | null;
   salary_label: string;
   description: string | null;
   requirements: string | null;
@@ -73,6 +75,23 @@ const getPostedLabel = (createdAt: string) => {
 
   const diffMonths = Math.floor(diffDays / 30);
   return `Posted ${diffMonths} month${diffMonths > 1 ? "s" : ""} ago`;
+};
+
+const getExpireLabel = (expirationDate: string | null) => {
+  if (!expirationDate) {
+    return "No expiration";
+  }
+
+  const expiresAt = new Date(expirationDate);
+  if (Number.isNaN(expiresAt.getTime())) {
+    return "No expiration";
+  }
+
+  return expiresAt.toLocaleDateString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
 };
 
 const JobDetail = () => {
@@ -195,10 +214,6 @@ const JobDetail = () => {
                 <span className="w-1.5 h-1.5 rounded-full bg-outline-variant/30"></span>
                 <span>{job.location}</span>
                 <span className="w-1.5 h-1.5 rounded-full bg-outline-variant/30"></span>
-                <span className="text-primary font-bold">
-                  {job.salary_label}
-                </span>
-                <span className="w-1.5 h-1.5 rounded-full bg-outline-variant/30"></span>
                 <span>{getPostedLabel(job.created_at)}</span>
               </div>
             </header>
@@ -250,9 +265,13 @@ const JobDetail = () => {
                     </p>
                   )}
                 </div>
+
+                <button className="w-full bg-primary text-on-primary py-4 rounded-xl font-bold text-lg hover:opacity-90 transition-all">
+                  Apply for this position
+                </button>
               </section>
 
-              <aside className="space-y-8 lg:sticky lg:top-8">
+              <aside className="space-y-8">
                 <div className="bg-surface-container-lowest p-8 shadow-[0_40px_60px_-5px_rgba(25,28,30,0.06)] border border-outline-variant/15">
                   <button className="w-full bg-primary text-on-primary py-4 rounded-xl font-bold text-lg mb-6 hover:opacity-90 transition-all">
                     Apply for this position
@@ -276,10 +295,10 @@ const JobDetail = () => {
                     </div>
                     <div className="flex justify-between items-center py-2 border-b border-outline-variant/10">
                       <span className="text-secondary text-sm font-medium">
-                        Category
+                        Expire date
                       </span>
                       <span className="text-primary font-bold">
-                        {job.category}
+                        {getExpireLabel(job.expiration_date)}
                       </span>
                     </div>
                   </div>
@@ -307,11 +326,11 @@ const JobDetail = () => {
                   )}
                 </div>
 
-                <div className="bg-white p-8 border border-outline-variant/15">
-                  <div className="flex items-center gap-3">
+                <div className="bg-white p-5 border border-outline-variant/20">
+                  <div className="flex items-center gap-4">
                     <Link
                       to={`/companies/${job.company_id}`}
-                      className="h-12 w-12 rounded-lg border border-outline-variant/20 bg-white shadow-sm overflow-hidden flex items-center justify-center shrink-0"
+                      className="h-20 w-20 rounded-lg border border-outline-variant/20 bg-white overflow-hidden flex items-center justify-center shrink-0"
                     >
                       {job.company_avatar_url && !isCompanyLogoBroken ? (
                         <img
@@ -321,21 +340,43 @@ const JobDetail = () => {
                           onError={() => setIsCompanyLogoBroken(true)}
                         />
                       ) : (
-                        <span className="text-lg font-extrabold text-blue-900">
+                        <span className="text-2xl font-extrabold text-blue-900">
                           {job.company_name.charAt(0).toUpperCase()}
                         </span>
                       )}
                     </Link>
-                    <div>
-                      <Link
-                        to={`/companies/${job.company_id}`}
-                        className="font-bold text-primary hover:text-surface-tint transition-colors"
-                      >
-                        {job.company_name}
-                      </Link>
-                      <p className="text-xs text-secondary font-medium uppercase tracking-wider mt-1">
+
+                    <Link
+                      to={`/companies/${job.company_id}`}
+                      className="min-w-0 text-xl leading-tight font-extrabold tracking-tight text-primary hover:text-surface-tint transition-colors line-clamp-2"
+                    >
+                      {job.company_name}
+                    </Link>
+                  </div>
+
+                  <div className="mt-3 space-y-2 text-sm">
+                    <div className="flex items-start gap-2 text-on-surface-variant">
+                      <span className="material-symbols-outlined text-lg leading-none mt-0.5 text-outline">
+                        inventory_2
+                      </span>
+                      <span className="font-medium text-secondary">
+                        Linh vuc:
+                      </span>
+                      <span className="font-semibold text-on-surface">
                         {job.company_category}
-                      </p>
+                      </span>
+                    </div>
+
+                    <div className="flex items-start gap-2 text-on-surface-variant">
+                      <span className="material-symbols-outlined text-lg leading-none mt-0.5 text-outline">
+                        location_on
+                      </span>
+                      <span className="font-medium text-secondary">
+                        Dia diem:
+                      </span>
+                      <span className="font-semibold text-on-surface">
+                        {job.company_address}
+                      </span>
                     </div>
                   </div>
                 </div>

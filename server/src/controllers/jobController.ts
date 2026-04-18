@@ -258,9 +258,14 @@ export const getPublicJobById = async (req: Request, res: Response) => {
           job.company.updated_at,
         ),
         company_category: job.company.category?.title ?? "General",
+        company_address:
+          [job.company.address, job.company.city?.name]
+            .filter((value): value is string => Boolean(value && value.trim()))
+            .join(", ") || "Address not available",
         category: job.category?.title ?? "General",
         location: job.company.city?.name || job.company.address || "Remote",
         created_at: job.created_at,
+        expiration_date: job.expiration_date,
         salary_label: formatSalaryLabel(job.salary_min, job.salary_max),
         description: job.description,
         requirements: job.requirements,
