@@ -1,7 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import Navbar from "../layouts/Navbar";
-import Footer from "../layouts/Footer";
 
 type StoredUser = {
   user_id?: number;
@@ -192,10 +190,7 @@ const JobManagement = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
-      {/* TopNavBar  */}
-      <Navbar />
-      {/* Main Content  */}
+    <>
       <main className="grow w-full max-w-360 mx-auto px-12 py-12">
         {/* Header Section  */}
         <div className="flex flex-col md:flex-row justify-between items-end mb-16 gap-6">
@@ -429,9 +424,7 @@ const JobManagement = () => {
           </div>
         </div>
       )}
-      {/* Footer  */}
-      <Footer />
-    </div>
+    </>
   );
 };
 

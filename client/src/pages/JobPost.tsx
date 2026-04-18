@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent, FormEvent, KeyboardEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import Footer from "../layouts/Footer";
-import Navbar from "../layouts/Navbar";
 import RichTextEditor from "../components/RichTextEditor";
 
 type StoredUser = {
@@ -410,277 +408,271 @@ const JobPost = () => {
   };
 
   return (
-    <div className="bg-background text-on-surface selection:bg-primary-fixed selection:text-on-primary-fixed">
-      <Navbar />
-
-      <main className="max-w-4xl mx-auto px-6 py-16">
-        {/* Header Section  */}
-        <div className="mb-12">
-          <h1 className="text-[3.5rem] font-extrabold tracking-tight text-primary leading-tight mb-4">
-            Post a Job
-          </h1>
-          <p className="text-secondary text-lg max-w-2xl leading-relaxed">
-            Fill in the details below to find your next exceptional hire. Your
-            listing will be curated for our professional network.
-          </p>
-        </div>
-        {/* Form Container  */}
-        <div className="bg-surface-container-lowest rounded-xl p-8 md:p-12 shadow-[0_40px_60px_-5px_rgba(25,28,30,0.06)]">
-          <form className="space-y-10" onSubmit={handleSubmit}>
-            {/* Basic Info Grid  */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="space-y-2">
-                <label className="block text-[10px] uppercase font-bold tracking-widest text-on-surface-variant">
-                  Title
-                </label>
-                <input
-                  className="w-full bg-white border border-gray-300 rounded-xl px-5 py-4 outline-none focus:border-black transition-all text-on-surface placeholder:text-outline/50"
-                  name="title"
-                  placeholder="e.g. Senior Product Designer"
-                  type="text"
-                  value={formData.title}
-                  onChange={handleInputChange}
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="block text-[10px] uppercase font-bold tracking-widest text-on-surface-variant">
-                  Category
-                </label>
-                <div className="relative">
-                  <select
-                    className="w-full bg-white border border-gray-300 rounded-xl px-5 py-4 outline-none focus:border-black transition-all appearance-none text-on-surface"
-                    name="categoryId"
-                    value={formData.categoryId}
-                    onChange={handleInputChange}
-                  >
-                    <option value="">
-                      {isLoadingCategories
-                        ? "Loading categories..."
-                        : "Select Category"}
-                    </option>
-                    {categories.map((category) => (
-                      <option
-                        key={category.category_id}
-                        value={category.category_id}
-                      >
-                        {category.title}
-                      </option>
-                    ))}
-                  </select>
-                  <span className="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-outline pointer-events-none">
-                    expand_more
-                  </span>
-                </div>
-              </div>
-            </div>
-            {/* Rich Text Areas  */}
-            <div className="space-y-8">
-              <div className="space-y-2">
-                <label className="block text-[10px] uppercase font-bold tracking-widest text-on-surface-variant">
-                  Description
-                </label>
-                <RichTextEditor
-                  value={formData.description}
-                  onChange={(nextValue) =>
-                    setFormData((current) => ({
-                      ...current,
-                      description: nextValue,
-                    }))
-                  }
-                  placeholder="Describe the role and day-to-day responsibilities..."
-                  heightClassName="h-80"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="block text-[10px] uppercase font-bold tracking-widest text-on-surface-variant">
-                  Requirements
-                </label>
-                <RichTextEditor
-                  value={formData.requirements}
-                  onChange={(nextValue) =>
-                    setFormData((current) => ({
-                      ...current,
-                      requirements: nextValue,
-                    }))
-                  }
-                  placeholder="List core qualifications and skills..."
-                  heightClassName="h-65"
-                />
-              </div>
-            </div>
-            {/* Required Skills Section  */}
-            <div className="space-y-4">
-              <label className="block text-[10px] uppercase font-bold tracking-widest text-on-surface-variant">
-                Required Skills
-              </label>
-              <div className="space-y-4">
-                <div className="relative">
-                  <input
-                    className="w-full bg-white border border-gray-300 rounded-xl px-5 py-4 outline-none focus:border-black transition-all text-on-surface placeholder:text-outline/50"
-                    placeholder="Search skills ..."
-                    type="text"
-                    value={skillInput}
-                    onFocus={() => setShowSkillOptions(true)}
-                    onChange={(event) => {
-                      setSkillInput(event.target.value);
-                      setShowSkillOptions(true);
-                    }}
-                    onKeyDown={handleSkillKeyDown}
-                  />
-                  <button
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-primary font-bold text-sm"
-                    type="button"
-                    onClick={handleAddSkill}
-                  >
-                    Add
-                  </button>
-                  {showSkillOptions && skillInput.trim() && (
-                    <div className="absolute z-20 mt-2 w-full rounded-xl border border-gray-300 bg-white shadow-lg overflow-hidden">
-                      {isLoadingSkills ? (
-                        <div className="px-4 py-3 text-sm text-secondary">
-                          Searching skills...
-                        </div>
-                      ) : availableSkillOptions.length === 0 ? (
-                        <div className="px-4 py-3 text-sm text-secondary">
-                          No matching skills.
-                        </div>
-                      ) : (
-                        <ul className="max-h-56 overflow-y-auto">
-                          {availableSkillOptions.map((option) => (
-                            <li key={option.skill_id}>
-                              <button
-                                type="button"
-                                className="w-full text-left px-4 py-3 text-sm text-on-surface hover:bg-gray-50 transition-colors"
-                                onMouseDown={(event) => event.preventDefault()}
-                                onClick={() => handleSelectSkill(option.name)}
-                              >
-                                {option.name}
-                              </button>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  )}
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {skills.map((skill) => (
-                    <div
-                      key={skill}
-                      className="flex items-center gap-2 bg-secondary/10 text-secondary px-3 py-1.5 rounded-full text-sm font-semibold border border-secondary/20 transition-all hover:bg-secondary/20"
-                    >
-                      <span>{skill}</span>
-                      <button
-                        className="flex items-center justify-center hover:text-error"
-                        type="button"
-                        onClick={() => handleRemoveSkill(skill)}
-                      >
-                        <span className="material-symbols-outlined text-base">
-                          close
-                        </span>
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-            {/* Salary Range  */}
-            <div className="space-y-4">
-              <label className="block text-[10px] uppercase font-bold tracking-widest text-on-surface-variant">
-                Salary Range
-              </label>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="relative">
-                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-outline font-medium text-xs uppercase tracking-wide">
-                    VND
-                  </span>
-                  <input
-                    className="w-full bg-white border border-gray-300 rounded-xl px-5 pr-16 py-4 outline-none focus:border-black transition-all"
-                    name="salaryMin"
-                    placeholder="Min"
-                    type="text"
-                    inputMode="numeric"
-                    value={formatCurrencyInput(formData.salaryMin)}
-                    onChange={handleSalaryChange}
-                  />
-                </div>
-                <div className="relative">
-                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-outline font-medium text-xs uppercase tracking-wide">
-                    VND
-                  </span>
-                  <input
-                    className="w-full bg-white border border-gray-300 rounded-xl px-5 pr-16 py-4 outline-none focus:border-black transition-all"
-                    name="salaryMax"
-                    placeholder="Max"
-                    type="text"
-                    inputMode="numeric"
-                    value={formatCurrencyInput(formData.salaryMax)}
-                    onChange={handleSalaryChange}
-                  />
-                </div>
-              </div>
-            </div>
-            {/* Expiration Date  */}
+    <main className="max-w-4xl mx-auto px-6 py-16">
+      {/* Header Section  */}
+      <div className="mb-12">
+        <h1 className="text-[3.5rem] font-extrabold tracking-tight text-primary leading-tight mb-4">
+          Post a Job
+        </h1>
+        <p className="text-secondary text-lg max-w-2xl leading-relaxed">
+          Fill in the details below to find your next exceptional hire. Your
+          listing will be curated for our professional network.
+        </p>
+      </div>
+      {/* Form Container  */}
+      <div className="bg-surface-container-lowest rounded-xl p-8 md:p-12 shadow-[0_40px_60px_-5px_rgba(25,28,30,0.06)]">
+        <form className="space-y-10" onSubmit={handleSubmit}>
+          {/* Basic Info Grid  */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-2">
               <label className="block text-[10px] uppercase font-bold tracking-widest text-on-surface-variant">
-                Benefits
+                Title
+              </label>
+              <input
+                className="w-full bg-white border border-gray-300 rounded-xl px-5 py-4 outline-none focus:border-black transition-all text-on-surface placeholder:text-outline/50"
+                name="title"
+                placeholder="e.g. Senior Product Designer"
+                type="text"
+                value={formData.title}
+                onChange={handleInputChange}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="block text-[10px] uppercase font-bold tracking-widest text-on-surface-variant">
+                Category
+              </label>
+              <div className="relative">
+                <select
+                  className="w-full bg-white border border-gray-300 rounded-xl px-5 py-4 outline-none focus:border-black transition-all appearance-none text-on-surface"
+                  name="categoryId"
+                  value={formData.categoryId}
+                  onChange={handleInputChange}
+                >
+                  <option value="">
+                    {isLoadingCategories
+                      ? "Loading categories..."
+                      : "Select Category"}
+                  </option>
+                  {categories.map((category) => (
+                    <option
+                      key={category.category_id}
+                      value={category.category_id}
+                    >
+                      {category.title}
+                    </option>
+                  ))}
+                </select>
+                <span className="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-outline pointer-events-none">
+                  expand_more
+                </span>
+              </div>
+            </div>
+          </div>
+          {/* Rich Text Areas  */}
+          <div className="space-y-8">
+            <div className="space-y-2">
+              <label className="block text-[10px] uppercase font-bold tracking-widest text-on-surface-variant">
+                Description
               </label>
               <RichTextEditor
-                value={formData.benefits}
+                value={formData.description}
                 onChange={(nextValue) =>
                   setFormData((current) => ({
                     ...current,
-                    benefits: nextValue,
+                    description: nextValue,
                   }))
                 }
-                placeholder="List company perks, healthcare, or other advantages..."
+                placeholder="Describe the role and day-to-day responsibilities..."
+                heightClassName="h-80"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="block text-[10px] uppercase font-bold tracking-widest text-on-surface-variant">
+                Requirements
+              </label>
+              <RichTextEditor
+                value={formData.requirements}
+                onChange={(nextValue) =>
+                  setFormData((current) => ({
+                    ...current,
+                    requirements: nextValue,
+                  }))
+                }
+                placeholder="List core qualifications and skills..."
                 heightClassName="h-65"
               />
             </div>
+          </div>
+          {/* Required Skills Section  */}
+          <div className="space-y-4">
+            <label className="block text-[10px] uppercase font-bold tracking-widest text-on-surface-variant">
+              Required Skills
+            </label>
             <div className="space-y-4">
-              <label className="block text-[10px] uppercase font-bold tracking-widest text-on-surface-variant">
-                Expiration Date
-              </label>
-              <div className="gap-4">
-                <div className="space-y-1">
-                  <div className="relative">
-                    <input
-                      className="w-full bg-white border border-gray-300 rounded-xl px-5 py-4 outline-none focus:border-black transition-all text-on-surface"
-                      name="expirationDate"
-                      type="text"
-                      inputMode="numeric"
-                      placeholder="dd/mm/yyyy"
-                      maxLength={10}
-                      value={formData.expirationDate}
-                      onChange={handleExpirationDateChange}
-                    />
+              <div className="relative">
+                <input
+                  className="w-full bg-white border border-gray-300 rounded-xl px-5 py-4 outline-none focus:border-black transition-all text-on-surface placeholder:text-outline/50"
+                  placeholder="Search skills ..."
+                  type="text"
+                  value={skillInput}
+                  onFocus={() => setShowSkillOptions(true)}
+                  onChange={(event) => {
+                    setSkillInput(event.target.value);
+                    setShowSkillOptions(true);
+                  }}
+                  onKeyDown={handleSkillKeyDown}
+                />
+                <button
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-primary font-bold text-sm"
+                  type="button"
+                  onClick={handleAddSkill}
+                >
+                  Add
+                </button>
+                {showSkillOptions && skillInput.trim() && (
+                  <div className="absolute z-20 mt-2 w-full rounded-xl border border-gray-300 bg-white shadow-lg overflow-hidden">
+                    {isLoadingSkills ? (
+                      <div className="px-4 py-3 text-sm text-secondary">
+                        Searching skills...
+                      </div>
+                    ) : availableSkillOptions.length === 0 ? (
+                      <div className="px-4 py-3 text-sm text-secondary">
+                        No matching skills.
+                      </div>
+                    ) : (
+                      <ul className="max-h-56 overflow-y-auto">
+                        {availableSkillOptions.map((option) => (
+                          <li key={option.skill_id}>
+                            <button
+                              type="button"
+                              className="w-full text-left px-4 py-3 text-sm text-on-surface hover:bg-gray-50 transition-colors"
+                              onMouseDown={(event) => event.preventDefault()}
+                              onClick={() => handleSelectSkill(option.name)}
+                            >
+                              {option.name}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </div>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {skills.map((skill) => (
+                  <div
+                    key={skill}
+                    className="flex items-center gap-2 bg-secondary/10 text-secondary px-3 py-1.5 rounded-full text-sm font-semibold border border-secondary/20 transition-all hover:bg-secondary/20"
+                  >
+                    <span>{skill}</span>
+                    <button
+                      className="flex items-center justify-center hover:text-error"
+                      type="button"
+                      onClick={() => handleRemoveSkill(skill)}
+                    >
+                      <span className="material-symbols-outlined text-base">
+                        close
+                      </span>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          {/* Salary Range  */}
+          <div className="space-y-4">
+            <label className="block text-[10px] uppercase font-bold tracking-widest text-on-surface-variant">
+              Salary Range
+            </label>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="relative">
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-outline font-medium text-xs uppercase tracking-wide">
+                  VND
+                </span>
+                <input
+                  className="w-full bg-white border border-gray-300 rounded-xl px-5 pr-16 py-4 outline-none focus:border-black transition-all"
+                  name="salaryMin"
+                  placeholder="Min"
+                  type="text"
+                  inputMode="numeric"
+                  value={formatCurrencyInput(formData.salaryMin)}
+                  onChange={handleSalaryChange}
+                />
+              </div>
+              <div className="relative">
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-outline font-medium text-xs uppercase tracking-wide">
+                  VND
+                </span>
+                <input
+                  className="w-full bg-white border border-gray-300 rounded-xl px-5 pr-16 py-4 outline-none focus:border-black transition-all"
+                  name="salaryMax"
+                  placeholder="Max"
+                  type="text"
+                  inputMode="numeric"
+                  value={formatCurrencyInput(formData.salaryMax)}
+                  onChange={handleSalaryChange}
+                />
+              </div>
+            </div>
+          </div>
+          {/* Expiration Date  */}
+          <div className="space-y-2">
+            <label className="block text-[10px] uppercase font-bold tracking-widest text-on-surface-variant">
+              Benefits
+            </label>
+            <RichTextEditor
+              value={formData.benefits}
+              onChange={(nextValue) =>
+                setFormData((current) => ({
+                  ...current,
+                  benefits: nextValue,
+                }))
+              }
+              placeholder="List company perks, healthcare, or other advantages..."
+              heightClassName="h-65"
+            />
+          </div>
+          <div className="space-y-4">
+            <label className="block text-[10px] uppercase font-bold tracking-widest text-on-surface-variant">
+              Expiration Date
+            </label>
+            <div className="gap-4">
+              <div className="space-y-1">
+                <div className="relative">
+                  <input
+                    className="w-full bg-white border border-gray-300 rounded-xl px-5 py-4 outline-none focus:border-black transition-all text-on-surface"
+                    name="expirationDate"
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="dd/mm/yyyy"
+                    maxLength={10}
+                    value={formData.expirationDate}
+                    onChange={handleExpirationDateChange}
+                  />
                 </div>
               </div>
             </div>
-            {/* Actions  */}
-            <div className="flex flex-col gap-4 pt-6 border-t border-outline-variant/15">
-              {(error || success) && (
-                <div
-                  className={`rounded-xl px-4 py-3 text-sm ${error ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"}`}
-                >
-                  {error || success}
-                </div>
-              )}
-              <button
-                className="bg-primary text-on-primary rounded-xl px-8 py-4 font-bold tracking-tight hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2 w-full disabled:opacity-60 disabled:cursor-not-allowed"
-                type="submit"
-                disabled={isSubmitting}
+          </div>
+          {/* Actions  */}
+          <div className="flex flex-col gap-4 pt-6 border-t border-outline-variant/15">
+            {(error || success) && (
+              <div
+                className={`rounded-xl px-4 py-3 text-sm ${error ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"}`}
               >
-                {isSubmitting ? "Publishing..." : "Publish Job"}
-              </button>
-            </div>
-          </form>
-        </div>
-      </main>
-
-      <Footer />
-    </div>
+                {error || success}
+              </div>
+            )}
+            <button
+              className="bg-primary text-on-primary rounded-xl px-8 py-4 font-bold tracking-tight hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2 w-full disabled:opacity-60 disabled:cursor-not-allowed"
+              type="submit"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? "Publishing..." : "Publish Job"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </main>
   );
 };
 

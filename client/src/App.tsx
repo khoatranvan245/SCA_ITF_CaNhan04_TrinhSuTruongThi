@@ -21,6 +21,7 @@ import ApplicationManagement from "./pages/ApplicationManagement";
 import CandidateProfile from "./pages/CandidateProfile";
 import CandidateApplications from "./pages/CandidateApplications";
 import PublicLayout from "./layouts/PublicLayout";
+import RecruiterLayout from "./layouts/RecruiterLayout";
 
 type StoredUser = {
   role?: {
@@ -178,14 +179,6 @@ const App = () => {
             <Route path="/companies/:companyId" element={<CompanyDetail />} />
             <Route path="/jobs/:jobId" element={<JobDetail />} />
 
-            <Route element={<RecruiterPrivateRoute />}>
-              <Route path="/company-profile" element={<CompanyProfile />} />
-              <Route
-                path="/application-management"
-                element={<ApplicationManagement />}
-              />
-            </Route>
-
             <Route element={<CandidatePrivateRoute />}>
               <Route path="/candidate-profile" element={<CandidateProfile />} />
               <Route
@@ -196,10 +189,17 @@ const App = () => {
           </Route>
 
           <Route element={<RecruiterPrivateRoute />}>
-            <Route path="/job-management" element={<Outlet />}>
-              <Route index element={<JobManagement />} />
-              <Route path="post" element={<JobPost />} />
-              <Route path="edit/:jobId" element={<JobEdit />} />
+            <Route element={<RecruiterLayout />}>
+              <Route path="/company-profile" element={<CompanyProfile />} />
+              <Route
+                path="/application-management"
+                element={<ApplicationManagement />}
+              />
+              <Route path="/job-management" element={<Outlet />}>
+                <Route index element={<JobManagement />} />
+                <Route path="post" element={<JobPost />} />
+                <Route path="edit/:jobId" element={<JobEdit />} />
+              </Route>
             </Route>
           </Route>
         </Route>
