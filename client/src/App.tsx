@@ -188,6 +188,10 @@ const App = () => {
 
             <Route element={<CandidatePrivateRoute />}>
               <Route path="/candidate-profile" element={<CandidateProfile />} />
+              <Route
+                path="/candidate-applications"
+                element={<CandidateApplications />}
+              />
             </Route>
           </Route>
 
@@ -197,13 +201,6 @@ const App = () => {
               <Route path="post" element={<JobPost />} />
               <Route path="edit/:jobId" element={<JobEdit />} />
             </Route>
-          </Route>
-
-          <Route element={<CandidatePrivateRoute />}>
-            <Route
-              path="/candidate-applications"
-              element={<CandidateApplications />}
-            />
           </Route>
         </Route>
 
