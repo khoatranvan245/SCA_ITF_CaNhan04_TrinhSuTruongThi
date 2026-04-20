@@ -107,6 +107,7 @@ model Candidate {
 model Resume {
   resume_id    Int      @id @default(autoincrement())
   candidate_id Int
+  name         String
   file_url     String
   uploaded_at  DateTime @default(now())
 

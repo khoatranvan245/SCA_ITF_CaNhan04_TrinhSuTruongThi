@@ -72,7 +72,7 @@ const ToastNotifications = ({
 
   return (
     <div
-      className={`fixed top-5 right-5 z-50 flex w-full max-w-[calc(100vw-1.25rem)] flex-col items-end gap-2.5 sm:max-w-[360px] ${className}`.trim()}
+      className={`fixed top-5 right-5 z-50 flex w-full max-w-[calc(100vw-1.25rem)] flex-col items-end gap-2.5 sm:max-w-90 ${className}`.trim()}
     >
       {notifications.map((notification) => {
         const style = variantStyles[notification.variant];

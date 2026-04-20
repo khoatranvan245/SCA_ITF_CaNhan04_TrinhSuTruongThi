@@ -32,6 +32,7 @@ type CandidateProfileData = {
 
 type CandidateResume = {
   resume_id: number;
+  name: string;
   file_url: string;
   uploaded_at: string;
 };
@@ -329,17 +330,6 @@ const CandidateProfile = () => {
       console.error("Update candidate profile error:", err);
     } finally {
       setIsSaving(false);
-    }
-  };
-
-  const getResumeFileName = (fileUrl: string) => {
-    try {
-      const parsed = new URL(fileUrl);
-      const segments = parsed.pathname.split("/").filter(Boolean);
-      return decodeURIComponent(segments[segments.length - 1] || "resume");
-    } catch {
-      const segments = fileUrl.split("/").filter(Boolean);
-      return decodeURIComponent(segments[segments.length - 1] || "resume");
     }
   };
 
@@ -763,7 +753,7 @@ const CandidateProfile = () => {
                       </div>
                       <div className="min-w-0">
                         <p className="text-sm md:text-base font-bold text-primary truncate">
-                          {getResumeFileName(item.file_url)}
+                          {item.name}
                         </p>
                         <p className="text-[10px] md:text-xs font-bold text-secondary tracking-wider uppercase mt-0.5">
                           {getResumeUpdatedLabel(item.uploaded_at)}

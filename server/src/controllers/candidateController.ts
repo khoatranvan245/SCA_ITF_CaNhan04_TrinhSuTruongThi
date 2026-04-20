@@ -157,6 +157,7 @@ export const getCandidateProfile = async (req: Request, res: Response) => {
     const resumes = await Promise.all(
       candidate.resumes.map(async (resume) => ({
         resume_id: resume.resume_id,
+        name: resume.name,
         file_url: await toSignedResumeUrl(resume.file_url),
         uploaded_at: resume.uploaded_at,
       })),
@@ -473,6 +474,7 @@ export const uploadCandidateResume = async (req: Request, res: Response) => {
     const createdResume = await prisma.resume.create({
       data: {
         candidate_id: candidate.candidate_id,
+        name: file.originalname,
         file_url: objectPath,
       },
     });
@@ -483,6 +485,7 @@ export const uploadCandidateResume = async (req: Request, res: Response) => {
       message: "CV uploaded successfully",
       resume: {
         resume_id: createdResume.resume_id,
+        name: createdResume.name,
         file_url: signedUrl,
         uploaded_at: createdResume.uploaded_at,
       },
