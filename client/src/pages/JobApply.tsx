@@ -5,8 +5,22 @@ type JobApplyValues = {
   email: string;
   phone: string;
   introduction: string;
+  selectedResumeId: number | null;
   resumeFile: File | null;
 };
+
+type CandidateResume = {
+  resume_id: number;
+  name: string;
+  file_url: string;
+  uploaded_at: string;
+};
+
+type StoredUser = {
+  user_id?: number;
+};
+
+type ResumeSelectionMode = "saved" | "upload";
 
 type JobApplyProps = {
   open: boolean;
@@ -21,7 +35,21 @@ const emptyValues: JobApplyValues = {
   email: "",
   phone: "",
   introduction: "",
+  selectedResumeId: null,
   resumeFile: null,
+};
+
+const getResumeUploadedLabel = (uploadedAt: string) => {
+  const uploadedTime = Date.parse(uploadedAt);
+  if (Number.isNaN(uploadedTime)) {
+    return "Uploaded recently";
+  }
+
+  return new Date(uploadedTime).toLocaleDateString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
 };
 
 const JobApply = ({
@@ -34,6 +62,10 @@ const JobApply = ({
   const [values, setValues] = useState<JobApplyValues>(emptyValues);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isOverlayVisible, setIsOverlayVisible] = useState(false);
+  const [resumeMode, setResumeMode] = useState<ResumeSelectionMode>("upload");
+  const [savedResumes, setSavedResumes] = useState<CandidateResume[]>([]);
+  const [isLoadingResumes, setIsLoadingResumes] = useState(false);
+  const [resumeLoadError, setResumeLoadError] = useState("");
 
   useEffect(() => {
     if (!open) {
@@ -62,6 +94,10 @@ const JobApply = ({
       setValues(emptyValues);
       setIsSubmitting(false);
       setIsOverlayVisible(false);
+      setResumeMode("upload");
+      setSavedResumes([]);
+      setIsLoadingResumes(false);
+      setResumeLoadError("");
 
       const animationFrameId = window.requestAnimationFrame(() => {
         setIsOverlayVisible(true);
@@ -69,6 +105,77 @@ const JobApply = ({
 
       return () => window.cancelAnimationFrame(animationFrameId);
     }
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const rawUser = localStorage.getItem("user");
+    if (!rawUser) {
+      return;
+    }
+
+    let userId: number | null = null;
+
+    try {
+      const user = JSON.parse(rawUser) as StoredUser;
+      userId =
+        typeof user.user_id === "number" && user.user_id > 0
+          ? user.user_id
+          : null;
+    } catch {
+      userId = null;
+    }
+
+    if (!userId) {
+      return;
+    }
+
+    const controller = new AbortController();
+
+    const loadSavedResumes = async () => {
+      setIsLoadingResumes(true);
+      setResumeLoadError("");
+
+      try {
+        const response = await fetch(
+          `http://localhost:3000/api/candidate-profile/${userId}`,
+          { signal: controller.signal },
+        );
+        const data = await response.json();
+
+        if (!response.ok) {
+          setResumeLoadError(data.message || "Failed to load saved CVs");
+          return;
+        }
+
+        const resumes = Array.isArray(data.candidate?.resumes)
+          ? (data.candidate.resumes as CandidateResume[])
+          : [];
+
+        setSavedResumes(resumes);
+        setResumeMode(resumes.length > 0 ? "saved" : "upload");
+        setValues((current) => ({
+          ...current,
+          selectedResumeId: resumes[0]?.resume_id ?? null,
+          resumeFile: null,
+        }));
+      } catch (error) {
+        if (error instanceof Error && error.name === "AbortError") {
+          return;
+        }
+
+        setResumeLoadError("Unable to load saved CVs");
+      } finally {
+        setIsLoadingResumes(false);
+      }
+    };
+
+    void loadSavedResumes();
+
+    return () => controller.abort();
   }, [open]);
 
   if (!open) {
@@ -90,6 +197,11 @@ const JobApply = ({
       setIsSubmitting(false);
     }
   };
+
+  const isResumeSelected =
+    resumeMode === "saved"
+      ? values.selectedResumeId !== null
+      : values.resumeFile !== null;
 
   return (
     <div className="fixed inset-0 z-70 flex items-center justify-center p-4 sm:p-6">
@@ -195,28 +307,112 @@ const JobApply = ({
             <label className="text-[10px] font-bold tracking-widest uppercase text-secondary px-1">
               CV / Resume
             </label>
-            <label className="flex cursor-pointer items-center justify-between rounded-xl border border-dashed border-outline-variant/40 bg-surface-container-low px-4 py-3 hover:border-primary/40 transition-colors">
-              <span className="text-sm text-on-surface-variant truncate pr-3">
-                {values.resumeFile
-                  ? values.resumeFile.name
-                  : "Choose a file (PDF, DOC, DOCX)"}
-              </span>
-              <span className="text-xs font-bold uppercase tracking-wider text-primary">
-                Browse
-              </span>
-              <input
-                className="hidden"
-                type="file"
-                accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                onChange={(event) => {
-                  const nextFile = event.target.files?.[0] ?? null;
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setResumeMode("saved");
+                  setValues((current) => ({ ...current, resumeFile: null }));
+                }}
+                className={`rounded-xl px-4 py-2.5 text-sm transition-colors ${
+                  resumeMode === "saved"
+                    ? "bg-primary text-on-primary"
+                    : "bg-surface-container-low text-secondary hover:bg-surface-container"
+                }`}
+                disabled={savedResumes.length === 0}
+              >
+                Use saved CV
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setResumeMode("upload");
                   setValues((current) => ({
                     ...current,
-                    resumeFile: nextFile,
+                    selectedResumeId: null,
                   }));
                 }}
-              />
-            </label>
+                className={`rounded-xl px-4 py-2.5 text-sm transition-colors ${
+                  resumeMode === "upload"
+                    ? "bg-primary text-on-primary"
+                    : "bg-surface-container-low text-secondary hover:bg-surface-container"
+                }`}
+              >
+                Upload new CV
+              </button>
+            </div>
+
+            {isLoadingResumes && (
+              <p className="text-xs text-secondary px-1">
+                Loading saved CVs...
+              </p>
+            )}
+
+            {!isLoadingResumes && resumeLoadError && (
+              <p className="text-xs text-error px-1">{resumeLoadError}</p>
+            )}
+
+            {!isLoadingResumes && resumeMode === "saved" && (
+              <div className="space-y-2">
+                {savedResumes.length > 0 ? (
+                  savedResumes.map((resume) => (
+                    <button
+                      key={resume.resume_id}
+                      type="button"
+                      onClick={() =>
+                        setValues((current) => ({
+                          ...current,
+                          selectedResumeId: resume.resume_id,
+                        }))
+                      }
+                      className={`w-full rounded-xl border px-4 py-3 text-left transition-colors ${
+                        values.selectedResumeId === resume.resume_id
+                          ? "border-primary bg-primary/5"
+                          : "border-outline-variant/30 bg-surface-container-low hover:border-primary/40"
+                      }`}
+                    >
+                      <p className="text-sm font-semibold text-primary truncate">
+                        {resume.name}
+                      </p>
+                      <p className="text-xs text-secondary mt-0.5">
+                        Uploaded {getResumeUploadedLabel(resume.uploaded_at)}
+                      </p>
+                    </button>
+                  ))
+                ) : (
+                  <p className="text-xs text-secondary px-1">
+                    You do not have any saved CV in profile yet. Please upload a
+                    new CV.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {resumeMode === "upload" && (
+              <label className="flex cursor-pointer items-center justify-between rounded-xl border border-dashed border-outline-variant/40 bg-surface-container-low px-4 py-3 hover:border-primary/40 transition-colors">
+                <span className="text-sm text-on-surface-variant truncate pr-3">
+                  {values.resumeFile
+                    ? values.resumeFile.name
+                    : "Choose a file (PDF, DOC, DOCX)"}
+                </span>
+                <span className="text-xs font-bold uppercase tracking-wider text-primary">
+                  Browse
+                </span>
+                <input
+                  className="hidden"
+                  type="file"
+                  accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                  onChange={(event) => {
+                    const nextFile = event.target.files?.[0] ?? null;
+                    setValues((current) => ({
+                      ...current,
+                      selectedResumeId: null,
+                      resumeFile: nextFile,
+                    }));
+                  }}
+                />
+              </label>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -249,7 +445,7 @@ const JobApply = ({
             <button
               type="submit"
               className="px-6 py-3 rounded-xl bg-primary text-on-primary font-bold hover:opacity-90 transition-all disabled:opacity-60"
-              disabled={isSubmitting}
+              disabled={isSubmitting || !isResumeSelected}
             >
               {isSubmitting ? "Submitting..." : "Submit Application"}
             </button>
