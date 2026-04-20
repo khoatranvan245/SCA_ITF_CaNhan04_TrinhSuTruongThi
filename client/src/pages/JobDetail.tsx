@@ -348,22 +348,22 @@ const JobDetail = () => {
                 </div>
 
                 <div className="mt-3 space-y-2 text-sm">
-                  <div className="flex items-start gap-2 text-on-surface-variant">
-                    <span className="material-symbols-outlined text-lg leading-none mt-0.5 text-outline">
+                  <div className="flex items-start gap-2 text-on-surface-variant mb-4">
+                    <span className="material-symbols-outlined text-lg leading-none text-outline">
                       inventory_2
                     </span>
                     <span className="font-medium text-secondary">Industry</span>
-                    <span className="font-semibold text-on-surface">
+                    <span className="ml-5 font-semibold text-on-surface">
                       {job.company_category}
                     </span>
                   </div>
 
                   <div className="flex items-start gap-2 text-on-surface-variant">
-                    <span className="material-symbols-outlined text-lg leading-none mt-0.5 text-outline">
+                    <span className="material-symbols-outlined text-lg leading-none text-outline">
                       location_on
                     </span>
                     <span className="font-medium text-secondary">Location</span>
-                    <span className="font-semibold text-on-surface">
+                    <span className="ml-5 font-semibold text-on-surface">
                       {job.company_address}
                     </span>
                   </div>
