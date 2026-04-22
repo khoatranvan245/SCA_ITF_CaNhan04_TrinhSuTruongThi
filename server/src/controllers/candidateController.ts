@@ -3,6 +3,7 @@ import { prisma } from "../lib/prisma";
 import { supabaseAdmin } from "../lib/supabaseAdmin";
 
 const ROLE_CANDIDATE = 1;
+const AVATAR_BUCKET_NAME = "Avatar";
 const CV_BUCKET_NAME = "CV";
 
 function normalizeSkillName(value: string): string {
@@ -67,6 +68,65 @@ function decodeUploadedFileName(fileName: string): string {
   }
 }
 
+function extractAvatarPath(avatarUrl: string): string | null {
+  const trimmed = avatarUrl.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  if (!trimmed.startsWith("http")) {
+    return trimmed.replace(/^\/+/, "");
+  }
+
+  try {
+    const parsed = new URL(trimmed);
+    const marker = `/${AVATAR_BUCKET_NAME}/`;
+    const markerIndex = parsed.pathname.indexOf(marker);
+
+    if (markerIndex === -1) {
+      return null;
+    }
+
+    const objectPath = parsed.pathname.slice(markerIndex + marker.length);
+    return decodeURIComponent(objectPath).replace(/^\/+/, "");
+  } catch {
+    return null;
+  }
+}
+
+function appendVersionParam(avatarUrl: string, updatedAt: Date): string {
+  try {
+    const parsed = new URL(avatarUrl);
+    parsed.searchParams.set("v", String(updatedAt.getTime()));
+    return parsed.toString();
+  } catch {
+    return `${avatarUrl}?v=${updatedAt.getTime()}`;
+  }
+}
+
+async function formatAvatarUrl(
+  avatarUrl: string | null | undefined,
+  updatedAt: Date,
+): Promise<string | null> {
+  if (!avatarUrl) {
+    return null;
+  }
+
+  const avatarPath = extractAvatarPath(avatarUrl);
+
+  if (avatarPath) {
+    const { data, error } = await supabaseAdmin.storage
+      .from(AVATAR_BUCKET_NAME)
+      .createSignedUrl(avatarPath, 60 * 60 * 24 * 7);
+
+    if (!error && data?.signedUrl) {
+      return appendVersionParam(data.signedUrl, updatedAt);
+    }
+  }
+
+  return appendVersionParam(avatarUrl, updatedAt);
+}
+
 function extractResumePath(fileUrl: string): string | null {
   const trimmed = fileUrl.trim();
   if (!trimmed) {
@@ -125,6 +185,94 @@ export const getCandidateCities = async (_req: Request, res: Response) => {
     res.status(200).json({ cities });
   } catch (error) {
     console.error("Get candidate cities error:", error);
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
+    res
+      .status(500)
+      .json({ message: "Internal server error", error: errorMessage });
+  }
+};
+
+export const getCandidateApplications = async (req: Request, res: Response) => {
+  try {
+    await prisma.$connect();
+
+    const userId = parseUserId(req.params.userId);
+    if (!userId) {
+      res.status(400).json({ message: "Invalid user id" });
+      return;
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { user_id: userId },
+      include: { role: true },
+    });
+
+    if (!user || user.role_id !== ROLE_CANDIDATE) {
+      res.status(403).json({ message: "Access denied" });
+      return;
+    }
+
+    const candidate = await prisma.candidate.findFirst({
+      where: { user_id: userId },
+      select: { candidate_id: true },
+    });
+
+    if (!candidate) {
+      res.status(404).json({ message: "Candidate profile not found" });
+      return;
+    }
+
+    const applications = await prisma.application.findMany({
+      where: { candidate_id: candidate.candidate_id },
+      include: {
+        job: {
+          include: {
+            category: true,
+            company: {
+              include: {
+                city: true,
+              },
+            },
+          },
+        },
+        resume: true,
+      },
+      orderBy: { created_at: "desc" },
+    });
+
+    const applicationsWithLogos = await Promise.all(
+      applications.map(async (application) => ({
+        application_id: application.application_id,
+        status: application.status,
+        created_at: application.created_at,
+        job: {
+          job_id: application.job.job_id,
+          title: application.job.title,
+          category: application.job.category?.title ?? "General",
+          company_name: application.job.company.name,
+          company_avatar_url: await formatAvatarUrl(
+            application.job.company.avatar_url,
+            application.job.company.updated_at,
+          ),
+          company_location:
+            application.job.company.city?.name ||
+            application.job.company.address ||
+            "Remote",
+        },
+        resume: {
+          resume_id: application.resume.resume_id,
+          name: application.resume.name,
+        },
+      })),
+    );
+
+    res.status(200).json({
+      applications: applicationsWithLogos,
+      total: applicationsWithLogos.length,
+    });
+  } catch (error) {
+    console.error("Get candidate applications error:", error);
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error";
     res
