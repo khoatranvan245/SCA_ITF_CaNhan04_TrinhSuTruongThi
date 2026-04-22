@@ -1,6 +1,14 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate, Outlet } from "react-router-dom";
 
+type StoredUser = {
+  user_id?: number;
+  role?: {
+    role_id?: number;
+    title?: string;
+  };
+};
+
 type StoredCompany = {
   name?: string;
   avatar_url?: string | null;
@@ -10,6 +18,29 @@ const RecruiterLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [company, setCompany] = useState<StoredCompany | null>(null);
+  const [isAvatarBroken, setIsAvatarBroken] = useState(false);
+
+  const getRecruiterUserId = (): number | null => {
+    const rawUser = localStorage.getItem("user");
+    if (!rawUser) {
+      return null;
+    }
+
+    try {
+      const user = JSON.parse(rawUser) as StoredUser;
+      const isRecruiter =
+        user?.role?.role_id === 2 ||
+        user?.role?.title?.toLowerCase() === "recruiter";
+
+      if (!isRecruiter || typeof user.user_id !== "number") {
+        return null;
+      }
+
+      return user.user_id;
+    } catch {
+      return null;
+    }
+  };
 
   useEffect(() => {
     const rawCompany = localStorage.getItem("company");
@@ -23,6 +54,52 @@ const RecruiterLayout = () => {
     } else {
       setCompany(null);
     }
+  }, []);
+
+  useEffect(() => {
+    const recruiterUserId = getRecruiterUserId();
+    if (!recruiterUserId) {
+      return;
+    }
+
+    const controller = new AbortController();
+
+    const fetchCompanyProfile = async () => {
+      try {
+        const response = await fetch(
+          `http://localhost:3000/api/company-profile/${recruiterUserId}`,
+          { signal: controller.signal },
+        );
+        const data = await response.json();
+
+        if (!response.ok || !data.company) {
+          return;
+        }
+
+        const nextCompany: StoredCompany = {
+          name: data.company.name ?? "",
+          avatar_url: data.company.avatar_url ?? null,
+        };
+
+        setCompany(nextCompany);
+        setIsAvatarBroken(false);
+
+        const rawCompany = localStorage.getItem("company");
+        const parsedCompany = rawCompany ? JSON.parse(rawCompany) : {};
+        localStorage.setItem(
+          "company",
+          JSON.stringify({ ...parsedCompany, ...data.company }),
+        );
+      } catch (error) {
+        if (error instanceof Error && error.name === "AbortError") {
+          return;
+        }
+      }
+    };
+
+    void fetchCompanyProfile();
+
+    return () => controller.abort();
   }, []);
 
   const menuItems = [
@@ -55,6 +132,10 @@ const RecruiterLayout = () => {
     localStorage.removeItem("company");
     navigate("/recruiter-login", { replace: true });
   };
+
+  useEffect(() => {
+    setIsAvatarBroken(false);
+  }, [company?.avatar_url]);
 
   return (
     <div className="flex h-screen bg-surface text-on-surface">
@@ -89,11 +170,12 @@ const RecruiterLayout = () => {
         {/* Bottom User Info */}
         <div className="border-t border-outline-variant/20 pt-4">
           <div className="flex items-center gap-3 px-4">
-            {company?.avatar_url ? (
+            {company?.avatar_url && !isAvatarBroken ? (
               <img
                 src={company.avatar_url}
                 alt={company.name || "Company avatar"}
                 className="w-10 h-10 rounded-full object-cover border border-outline-variant/20"
+                onError={() => setIsAvatarBroken(true)}
               />
             ) : (
               <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
