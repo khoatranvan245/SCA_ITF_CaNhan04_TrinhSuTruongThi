@@ -167,9 +167,6 @@ const JobDetail = () => {
 
     const formData = new FormData();
     formData.append("user_id", String(userId));
-    formData.append("full_name", values.fullName);
-    formData.append("email", values.email);
-    formData.append("phone", values.phone);
     formData.append("introduction", values.introduction);
 
     if (values.selectedResumeId) {

@@ -1,9 +1,6 @@
 import { useEffect, useState } from "react";
 
 export type JobApplyValues = {
-  fullName: string;
-  email: string;
-  phone: string;
   introduction: string;
   selectedResumeId: number | null;
   resumeFile: File | null;
@@ -31,9 +28,6 @@ type JobApplyProps = {
 };
 
 const emptyValues: JobApplyValues = {
-  fullName: "",
-  email: "",
-  phone: "",
   introduction: "",
   selectedResumeId: null,
   resumeFile: null,
@@ -241,7 +235,7 @@ const JobApply = ({
               Apply for {jobTitle}
             </h2>
             <p className="text-sm text-secondary mt-1">
-              Submit your details to {companyName}.
+              Submit your CV and quick introduction to {companyName}.
             </p>
           </div>
 
@@ -261,64 +255,6 @@ const JobApply = ({
               {submitError}
             </div>
           )}
-
-          <div className="space-y-2">
-            <label className="text-[10px] font-bold tracking-widest uppercase text-secondary px-1">
-              Full Name
-            </label>
-            <input
-              className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-black focus:ring-0"
-              type="text"
-              value={values.fullName}
-              onChange={(event) =>
-                setValues((current) => ({
-                  ...current,
-                  fullName: event.target.value,
-                }))
-              }
-              placeholder="Enter your full name"
-              required
-            />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-[10px] font-bold tracking-widest uppercase text-secondary px-1">
-                Email
-              </label>
-              <input
-                className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-black focus:ring-0"
-                type="email"
-                value={values.email}
-                onChange={(event) =>
-                  setValues((current) => ({
-                    ...current,
-                    email: event.target.value,
-                  }))
-                }
-                placeholder="name@email.com"
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-[10px] font-bold tracking-widest uppercase text-secondary px-1">
-                Phone
-              </label>
-              <input
-                className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-black focus:ring-0"
-                type="tel"
-                value={values.phone}
-                onChange={(event) =>
-                  setValues((current) => ({
-                    ...current,
-                    phone: event.target.value,
-                  }))
-                }
-                placeholder="Your phone number"
-              />
-            </div>
-          </div>
 
           <div className="space-y-2">
             <label className="text-[10px] font-bold tracking-widest uppercase text-secondary px-1">
