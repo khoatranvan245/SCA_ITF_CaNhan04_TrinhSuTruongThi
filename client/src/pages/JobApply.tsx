@@ -260,40 +260,41 @@ const JobApply = ({
             <label className="text-[10px] font-bold tracking-widest uppercase text-secondary px-1">
               CV / Resume
             </label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setResumeMode("upload");
-                  setValues((current) => ({
-                    ...current,
-                    selectedResumeId: null,
-                  }));
-                }}
-                className={`rounded-xl px-4 py-2.5 text-sm transition-colors ${
-                  resumeMode === "upload"
-                    ? "bg-primary text-on-primary"
-                    : "bg-surface-container-low text-secondary hover:bg-surface-container"
-                }`}
-              >
-                Upload new CV
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setResumeMode("saved");
-                  setValues((current) => ({ ...current, resumeFile: null }));
-                }}
-                className={`rounded-xl px-4 py-2.5 text-sm transition-colors ${
-                  resumeMode === "saved"
-                    ? "bg-primary text-on-primary"
-                    : "bg-surface-container-low text-secondary hover:bg-surface-container"
-                }`}
-                disabled={savedResumes.length === 0}
-              >
-                Use saved CV
-              </button>
-            </div>
+            {savedResumes.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setResumeMode("upload");
+                    setValues((current) => ({
+                      ...current,
+                      selectedResumeId: null,
+                    }));
+                  }}
+                  className={`rounded-xl px-4 py-2.5 text-sm transition-colors ${
+                    resumeMode === "upload"
+                      ? "bg-primary text-on-primary"
+                      : "bg-surface-container-low text-secondary hover:bg-surface-container"
+                  }`}
+                >
+                  Upload new CV
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setResumeMode("saved");
+                    setValues((current) => ({ ...current, resumeFile: null }));
+                  }}
+                  className={`rounded-xl px-4 py-2.5 text-sm transition-colors ${
+                    resumeMode === "saved"
+                      ? "bg-primary text-on-primary"
+                      : "bg-surface-container-low text-secondary hover:bg-surface-container"
+                  }`}
+                >
+                  Use saved CV
+                </button>
+              </div>
+            )}
 
             {isLoadingResumes || resumeMode === "loading" ? (
               <p className="text-xs text-secondary px-1">
@@ -305,39 +306,32 @@ const JobApply = ({
               <p className="text-xs text-error px-1">{resumeLoadError}</p>
             )}
 
-            {!isLoadingResumes && resumeMode === "saved" && (
+            {!isLoadingResumes && resumeMode === "saved" && savedResumes.length > 0 && (
               <div className="space-y-2">
-                {savedResumes.length > 0 ? (
-                  savedResumes.map((resume) => (
-                    <button
-                      key={resume.resume_id}
-                      type="button"
-                      onClick={() =>
-                        setValues((current) => ({
-                          ...current,
-                          selectedResumeId: resume.resume_id,
-                        }))
-                      }
-                      className={`w-full rounded-xl border px-4 py-3 text-left transition-colors ${
-                        values.selectedResumeId === resume.resume_id
-                          ? "border-black bg-white"
-                          : "border-gray-300 bg-white hover:border-black"
-                      }`}
-                    >
-                      <p className="text-sm font-semibold text-primary truncate">
-                        {resume.name}
-                      </p>
-                      <p className="text-xs text-secondary mt-0.5">
-                        Uploaded {getResumeUploadedLabel(resume.uploaded_at)}
-                      </p>
-                    </button>
-                  ))
-                ) : (
-                  <p className="text-xs text-secondary px-1">
-                    You do not have any saved CV in profile yet. Please upload a
-                    new CV.
-                  </p>
-                )}
+                {savedResumes.map((resume) => (
+                  <button
+                    key={resume.resume_id}
+                    type="button"
+                    onClick={() =>
+                      setValues((current) => ({
+                        ...current,
+                        selectedResumeId: resume.resume_id,
+                      }))
+                    }
+                    className={`w-full rounded-xl border px-4 py-3 text-left transition-colors ${
+                      values.selectedResumeId === resume.resume_id
+                        ? "border-black bg-white"
+                        : "border-gray-300 bg-white hover:border-black"
+                    }`}
+                  >
+                    <p className="text-sm font-semibold text-primary truncate">
+                      {resume.name}
+                    </p>
+                    <p className="text-xs text-secondary mt-0.5">
+                      Uploaded {getResumeUploadedLabel(resume.uploaded_at)}
+                    </p>
+                  </button>
+                ))}
               </div>
             )}
 
