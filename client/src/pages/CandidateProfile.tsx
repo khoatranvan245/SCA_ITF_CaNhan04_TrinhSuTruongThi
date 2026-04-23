@@ -26,6 +26,7 @@ type CandidateProfileData = {
   full_name: string;
   phone: string;
   email: string;
+  avatar_url: string | null;
   city_id: number;
   skills: string[];
 };
@@ -41,6 +42,7 @@ const emptyProfile: CandidateProfileData = {
   full_name: "",
   phone: "",
   email: "",
+  avatar_url: null,
   city_id: 0,
   skills: [],
 };
@@ -57,6 +59,13 @@ const CandidateProfile = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [resumes, setResumes] = useState<CandidateResume[]>([]);
+  const [selectedAvatarFile, setSelectedAvatarFile] = useState<File | null>(
+    null,
+  );
+  const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [avatarError, setAvatarError] = useState("");
+  const [avatarSuccess, setAvatarSuccess] = useState("");
   const [selectedCvFile, setSelectedCvFile] = useState<File | null>(null);
   const [isUploadingCv, setIsUploadingCv] = useState(false);
   const [isDeletingCv, setIsDeletingCv] = useState(false);
@@ -116,6 +125,7 @@ const CandidateProfile = () => {
           full_name: profileData.candidate?.full_name ?? "",
           phone: profileData.candidate?.phone ?? "",
           email: profileData.user?.email ?? parsedUser?.email ?? "",
+          avatar_url: profileData.candidate?.avatar_url ?? null,
           city_id: profileData.candidate?.city_id ?? 0,
           skills: Array.isArray(profileData.candidate?.skills)
             ? profileData.candidate.skills
@@ -186,6 +196,14 @@ const CandidateProfile = () => {
     };
   }, [skillInput]);
 
+  useEffect(() => {
+    return () => {
+      if (avatarPreviewUrl) {
+        URL.revokeObjectURL(avatarPreviewUrl);
+      }
+    };
+  }, [avatarPreviewUrl]);
+
   const availableSkillOptions = useMemo(() => {
     const selected = new Set(
       draftProfile.skills.map((skill) => skill.toLowerCase()),
@@ -202,6 +220,76 @@ const CandidateProfile = () => {
     setSkillOptions([]);
     setError("");
     setSuccess("");
+    setAvatarError("");
+    setAvatarSuccess("");
+    setSelectedAvatarFile(null);
+    setAvatarPreviewUrl(null);
+  };
+
+  const handleUploadAvatar = async (fileToUpload?: File) => {
+    const nextFile = fileToUpload ?? selectedAvatarFile;
+
+    if (!userId) {
+      setAvatarError("Invalid user session");
+      return;
+    }
+
+    if (!nextFile) {
+      setAvatarError("Please select an avatar image before uploading");
+      return;
+    }
+
+    setIsUploadingAvatar(true);
+    setAvatarError("");
+    setAvatarSuccess("");
+
+    try {
+      const formData = new FormData();
+      formData.append("avatar", nextFile);
+
+      const response = await fetch(
+        `http://localhost:3000/api/candidate-profile/${userId}/avatar`,
+        {
+          method: "POST",
+          body: formData,
+        },
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setAvatarError(data.message || "Failed to upload avatar");
+        return;
+      }
+
+      const nextAvatarUrl = data.candidate?.avatar_url ?? null;
+
+      setProfile((current) => ({
+        ...current,
+        avatar_url: nextAvatarUrl,
+      }));
+      setDraftProfile((current) => ({
+        ...current,
+        avatar_url: nextAvatarUrl,
+      }));
+      setSelectedAvatarFile(null);
+      setAvatarPreviewUrl(null);
+      setAvatarSuccess("Avatar updated successfully.");
+
+      const user = parsedUser || {};
+      localStorage.setItem(
+        "user",
+        JSON.stringify({
+          ...user,
+          avatar_url: nextAvatarUrl,
+        }),
+      );
+    } catch (uploadError) {
+      setAvatarError("An error occurred while uploading avatar.");
+      console.error("Upload avatar error:", uploadError);
+    } finally {
+      setIsUploadingAvatar(false);
+    }
   };
 
   const handleAddSkill = () => {
@@ -304,6 +392,7 @@ const CandidateProfile = () => {
         full_name: data.candidate?.full_name ?? "",
         phone: data.candidate?.phone ?? "",
         email: data.user?.email ?? draftProfile.email,
+        avatar_url: data.candidate?.avatar_url ?? draftProfile.avatar_url,
         city_id: data.candidate?.city_id ?? draftProfile.city_id,
         skills: Array.isArray(data.candidate?.skills)
           ? data.candidate.skills
@@ -323,6 +412,7 @@ const CandidateProfile = () => {
           ...user,
           full_name: updatedProfile.full_name,
           email: updatedProfile.email,
+          avatar_url: updatedProfile.avatar_url,
         }),
       );
     } catch (err) {
@@ -461,6 +551,20 @@ const CandidateProfile = () => {
               variant: "success" as const,
             }
           : null,
+        avatarError
+          ? {
+              id: "avatar-error",
+              message: avatarError,
+              variant: "error" as const,
+            }
+          : null,
+        avatarSuccess
+          ? {
+              id: "avatar-success",
+              message: avatarSuccess,
+              variant: "success" as const,
+            }
+          : null,
       ].filter(
         (
           item,
@@ -470,7 +574,7 @@ const CandidateProfile = () => {
           variant: "error" | "success";
         } => item !== null,
       ),
-    [cvError, cvSuccess, error, success],
+    [avatarError, avatarSuccess, cvError, cvSuccess, error, success],
   );
 
   const handleDismissNotification = (id: string) => {
@@ -486,6 +590,12 @@ const CandidateProfile = () => {
         break;
       case "cv-success":
         setCvSuccess("");
+        break;
+      case "avatar-error":
+        setAvatarError("");
+        break;
+      case "avatar-success":
+        setAvatarSuccess("");
         break;
       default:
         break;
@@ -524,6 +634,78 @@ const CandidateProfile = () => {
             quickly.
           </p>
         </div>
+        <section className="bg-surface-container-lowest p-8 lg:p-12 rounded-xl mb-10">
+          <div className="flex items-center gap-3 mb-8">
+            <span className="material-symbols-outlined text-primary text-3xl">
+              account_circle
+            </span>
+            <h2 className="text-2xl font-bold text-primary">Avatar</h2>
+          </div>
+
+          <div className="flex flex-col lg:flex-row items-center gap-6">
+            <div className="relative w-32 h-32 rounded-full overflow-hidden border-4 border-surface-container-high shadow-lg bg-surface-container-highest flex items-center justify-center shrink-0">
+              {avatarPreviewUrl || draftProfile.avatar_url ? (
+                <img
+                  src={avatarPreviewUrl || draftProfile.avatar_url || undefined}
+                  alt={draftProfile.full_name || "Avatar preview"}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span className="material-symbols-outlined text-primary text-5xl">
+                  person
+                </span>
+              )}
+            </div>
+
+            <div className="flex-1 space-y-4 text-center lg:text-left">
+              <div>
+                <p className="text-lg font-bold text-primary">
+                  Upload or change your avatar
+                </p>
+                <p className="text-sm text-secondary mt-1">
+                  JPG, PNG, or WEBP up to 5MB.
+                </p>
+              </div>
+
+              <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-on-primary transition-colors hover:opacity-90 disabled:opacity-60">
+                <span className="material-symbols-outlined text-base">
+                  photo_camera
+                </span>
+                {isUploadingAvatar ? "Uploading..." : "Choose Avatar"}
+                <input
+                  type="file"
+                  className="hidden"
+                  accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+                  disabled={isUploadingAvatar}
+                  onChange={(event) => {
+                    const file = event.target.files?.[0] ?? null;
+                    setAvatarError("");
+                    setAvatarSuccess("");
+                    setSelectedAvatarFile(file);
+
+                    if (avatarPreviewUrl) {
+                      URL.revokeObjectURL(avatarPreviewUrl);
+                    }
+
+                    if (file) {
+                      const nextPreviewUrl = URL.createObjectURL(file);
+                      setAvatarPreviewUrl(nextPreviewUrl);
+                      void handleUploadAvatar(file);
+                    } else {
+                      setAvatarPreviewUrl(null);
+                    }
+                  }}
+                />
+              </label>
+
+              {selectedAvatarFile && (
+                <p className="text-xs text-secondary">
+                  Selected: {selectedAvatarFile.name}
+                </p>
+              )}
+            </div>
+          </div>
+        </section>
         <form className="space-y-10" onSubmit={handleSaveProfile}>
           <section className="bg-surface-container-lowest p-8 lg:p-12 rounded-xl">
             <div className="flex items-center gap-3 mb-10">

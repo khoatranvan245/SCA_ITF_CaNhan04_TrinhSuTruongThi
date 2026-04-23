@@ -89,12 +89,12 @@ model Job {
 }
 
 model Candidate {
-  candidate_id     Int     @id @default(autoincrement())
-  full_name        String
-  phone            String?
-  experience_years Int?
-  user_id          Int
-  city_id          Int
+  candidate_id Int     @id @default(autoincrement())
+  full_name    String
+  phone        String?
+  avatar_url   String?
+  user_id      Int
+  city_id      Int
 
   user User @relation(fields: [user_id], references: [user_id])
   city City @relation(fields: [city_id], references: [city_id])

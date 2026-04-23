@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import sharp from "sharp";
 import { prisma } from "../lib/prisma";
 import { supabaseAdmin } from "../lib/supabaseAdmin";
 
@@ -66,6 +67,10 @@ function decodeUploadedFileName(fileName: string): string {
   } catch {
     return fallbackName;
   }
+}
+
+function buildCandidateAvatarFileName(candidateId: number) {
+  return `candidate-${candidateId}-${Date.now()}.png`;
 }
 
 function extractAvatarPath(avatarUrl: string): string | null {
@@ -331,12 +336,18 @@ export const getCandidateProfile = async (req: Request, res: Response) => {
       })),
     );
 
+    const avatarUrl = await formatAvatarUrl(
+      candidate.avatar_url,
+      user.updated_at,
+    );
+
     res.status(200).json({
       candidate: {
         candidate_id: candidate.candidate_id,
         user_id: candidate.user_id,
         full_name: candidate.full_name,
         phone: candidate.phone,
+        avatar_url: avatarUrl,
         experience_years: candidate.experience_years,
         city_id: candidate.city_id,
         city: candidate.city,
@@ -535,6 +546,10 @@ export const updateCandidateProfile = async (req: Request, res: Response) => {
         user_id: updatedCandidate.user_id,
         full_name: updatedCandidate.full_name,
         phone: updatedCandidate.phone,
+        avatar_url: await formatAvatarUrl(
+          updatedCandidate.avatar_url,
+          user.updated_at,
+        ),
         experience_years: updatedCandidate.experience_years,
         city_id: updatedCandidate.city_id,
         city: updatedCandidate.city,
@@ -661,6 +676,114 @@ export const uploadCandidateResume = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error("Upload candidate resume error:", error);
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
+    res
+      .status(500)
+      .json({ message: "Internal server error", error: errorMessage });
+  }
+};
+
+export const uploadCandidateAvatar = async (req: Request, res: Response) => {
+  try {
+    await prisma.$connect();
+
+    const userId = parseUserId(req.params.userId);
+    if (!userId) {
+      res.status(400).json({ message: "Invalid user id" });
+      return;
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { user_id: userId },
+      include: { role: true },
+    });
+
+    if (!user || user.role_id !== ROLE_CANDIDATE) {
+      res.status(403).json({ message: "Access denied" });
+      return;
+    }
+
+    const candidate = await prisma.candidate.findFirst({
+      where: { user_id: userId },
+      select: {
+        candidate_id: true,
+        avatar_url: true,
+      },
+    });
+
+    if (!candidate) {
+      res.status(404).json({ message: "Candidate profile not found" });
+      return;
+    }
+
+    const file = req.file;
+    if (!file) {
+      res.status(400).json({ message: "Please select an avatar image" });
+      return;
+    }
+
+    const allowedMimeTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+
+    if (!allowedMimeTypes.has(file.mimetype)) {
+      res.status(400).json({
+        message: "Only JPG, PNG, or WEBP images are supported",
+      });
+      return;
+    }
+
+    const avatarBuffer = await sharp(file.buffer)
+      .resize(512, 512, {
+        fit: "cover",
+        position: "centre",
+      })
+      .png({ compressionLevel: 9 })
+      .toBuffer();
+
+    const objectPath = `candidates/${buildCandidateAvatarFileName(
+      candidate.candidate_id,
+    )}`;
+
+    const { error: uploadError } = await supabaseAdmin.storage
+      .from(AVATAR_BUCKET_NAME)
+      .upload(objectPath, avatarBuffer, {
+        contentType: "image/png",
+        upsert: true,
+      });
+
+    if (uploadError) {
+      res.status(500).json({ message: "Failed to upload avatar" });
+      return;
+    }
+
+    const previousAvatarPath = extractAvatarPath(candidate.avatar_url ?? "");
+    if (previousAvatarPath && previousAvatarPath !== objectPath) {
+      await supabaseAdmin.storage
+        .from(AVATAR_BUCKET_NAME)
+        .remove([previousAvatarPath]);
+    }
+
+    const updatedCandidate = await prisma.candidate.update({
+      where: { candidate_id: candidate.candidate_id },
+      data: {
+        avatar_url: objectPath,
+      },
+    });
+
+    const avatarUrl = await formatAvatarUrl(
+      updatedCandidate.avatar_url,
+      user.updated_at,
+    );
+
+    res.status(200).json({
+      message: "Avatar uploaded successfully",
+      candidate: {
+        candidate_id: updatedCandidate.candidate_id,
+        avatar_url: avatarUrl,
+      },
+    });
+  } catch (error) {
+    console.error("Upload candidate avatar error:", error);
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error";
     res
