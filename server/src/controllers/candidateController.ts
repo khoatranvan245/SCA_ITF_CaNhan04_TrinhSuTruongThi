@@ -348,7 +348,6 @@ export const getCandidateProfile = async (req: Request, res: Response) => {
         full_name: candidate.full_name,
         phone: candidate.phone,
         avatar_url: avatarUrl,
-        experience_years: candidate.experience_years,
         city_id: candidate.city_id,
         city: candidate.city,
         resumes,
@@ -398,25 +397,22 @@ export const updateCandidateProfile = async (req: Request, res: Response) => {
       return;
     }
 
-    const { full_name, phone, experience_years, city_id } = req.body;
-    const skillsInput: unknown[] = Array.isArray(req.body.skills)
-      ? req.body.skills
-      : typeof req.body.skills === "string" && req.body.skills.trim()
-        ? req.body.skills.split(",")
+    const { full_name, phone, city_id } = req.body;
+    const rawSkills = req.body.skills;
+    const skillsInput: string[] = Array.isArray(rawSkills)
+      ? rawSkills
+          .map((skill) => String(skill).trim())
+          .filter((skill) => skill.length > 0)
+      : typeof rawSkills === "string" && rawSkills.trim()
+        ? rawSkills
+            .split(",")
+            .map((skill) => skill.trim())
+            .filter((skill) => skill.length > 0)
         : [];
 
     if (typeof full_name === "string" && !full_name.trim()) {
       res.status(400).json({ message: "Full name cannot be empty" });
       return;
-    }
-
-    if (experience_years !== undefined && experience_years !== null) {
-      const parsedYears = Number(experience_years);
-
-      if (!Number.isInteger(parsedYears) || parsedYears < 0) {
-        res.status(400).json({ message: "Invalid experience years" });
-        return;
-      }
     }
 
     if (city_id !== undefined) {
@@ -437,26 +433,17 @@ export const updateCandidateProfile = async (req: Request, res: Response) => {
       }
     }
 
-    const normalizedSkillNames = Array.from(
-      skillsInput
-        .reduce((skillMap, skill: unknown) => {
-          const trimmedSkill =
-            typeof skill === "string" ? skill.trim() : String(skill).trim();
+    const skillMap = new Map<string, string>();
+    for (const skill of skillsInput) {
+      const normalizedKey = normalizeSkillName(skill);
+      if (!normalizedKey || skillMap.has(normalizedKey)) {
+        continue;
+      }
 
-          if (!trimmedSkill) {
-            return skillMap;
-          }
+      skillMap.set(normalizedKey, skill);
+    }
 
-          const normalizedKey = normalizeSkillName(trimmedSkill);
-          if (!normalizedKey || skillMap.has(normalizedKey)) {
-            return skillMap;
-          }
-
-          skillMap.set(normalizedKey, trimmedSkill);
-          return skillMap;
-        }, new Map<string, string>())
-        .values(),
-    );
+    const normalizedSkillNames = Array.from(skillMap.values());
 
     const updatedCandidate = await prisma.$transaction(async (transaction) => {
       const savedCandidate = await transaction.candidate.update({
@@ -466,12 +453,6 @@ export const updateCandidateProfile = async (req: Request, res: Response) => {
             ? { full_name: full_name.trim() }
             : {}),
           ...(typeof phone === "string" ? { phone: phone.trim() || null } : {}),
-          ...(experience_years !== undefined
-            ? {
-                experience_years:
-                  experience_years === null ? null : Number(experience_years),
-              }
-            : {}),
           ...(city_id !== undefined ? { city_id: Number(city_id) } : {}),
         },
         include: {
@@ -550,7 +531,6 @@ export const updateCandidateProfile = async (req: Request, res: Response) => {
           updatedCandidate.avatar_url,
           user.updated_at,
         ),
-        experience_years: updatedCandidate.experience_years,
         city_id: updatedCandidate.city_id,
         city: updatedCandidate.city,
         skills: updatedCandidate.candidate_skills.map(

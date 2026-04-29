@@ -13,3 +13,9 @@ export const JobStatus = {
     pending: 'pending',
     expired: 'expired'
 };
+export const ApplicationStatus = {
+    pending: 'pending',
+    reviewing: 'reviewing',
+    rejected: 'rejected',
+    accepted: 'accepted'
+};

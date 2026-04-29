@@ -107,6 +107,10 @@ const CandidateApplications = () => {
 
   const candidateUserId = useMemo(() => {
     const user = getStoredCandidateUser();
+    if (!user) {
+      return null;
+    }
+
     const roleTitle = user?.role?.title?.toLowerCase();
 
     if (

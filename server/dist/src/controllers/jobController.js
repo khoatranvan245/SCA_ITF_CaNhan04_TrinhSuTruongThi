@@ -1,4 +1,8 @@
 import { prisma } from "../lib/prisma";
+import { supabaseAdmin } from "../lib/supabaseAdmin";
+import { evaluateApplicationAI, extractCvTextFromSupabase, } from "../lib/aiEvaluation";
+const AVATAR_BUCKET_NAME = "Avatar";
+const CV_BUCKET_NAME = "CV";
 const ROLE_RECRUITER = 2;
 function parseUserId(rawUserId) {
     const normalizedValue = Array.isArray(rawUserId) ? rawUserId[0] : rawUserId;
@@ -34,6 +38,21 @@ function parseOptionalInteger(value) {
     }
     return parsePositiveInteger(value);
 }
+function parseOptionalNonNegativeInteger(value) {
+    if (value === undefined || value === null || value === "") {
+        return null;
+    }
+    if (typeof value === "number" && Number.isInteger(value) && value >= 0) {
+        return value;
+    }
+    if (typeof value === "string" && value.trim() !== "") {
+        const parsedValue = Number(value);
+        if (Number.isInteger(parsedValue) && parsedValue >= 0) {
+            return parsedValue;
+        }
+    }
+    return null;
+}
 function parseDateOnly(value) {
     const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
     if (!match) {
@@ -58,6 +77,30 @@ function normalizeSkillName(value) {
         .replace(/[^a-zA-Z0-9]/g, "")
         .toLowerCase();
 }
+function sanitizeFileName(fileName) {
+    return fileName
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-zA-Z0-9._-]/g, "_")
+        .replace(/_+/g, "_")
+        .slice(0, 120);
+}
+function hasMojibake(fileName) {
+    return /Ã.|Â.|Ä.|áº|á»|â.|Ê.|Ô.|Õ./.test(fileName);
+}
+function decodeUploadedFileName(fileName) {
+    const fallbackName = fileName.trim() || "resume";
+    if (!hasMojibake(fallbackName)) {
+        return fallbackName;
+    }
+    try {
+        const decodedName = Buffer.from(fallbackName, "latin1").toString("utf8");
+        return decodedName.includes("�") ? fallbackName : decodedName;
+    }
+    catch {
+        return fallbackName;
+    }
+}
 const formatMillionVnd = (value) => {
     const millionValue = value / 1_000_000;
     return Number.isInteger(millionValue)
@@ -76,6 +119,53 @@ const formatSalaryLabel = (salaryMin, salaryMax) => {
     }
     return "Salary negotiable";
 };
+function extractAvatarPath(avatarUrl) {
+    const trimmed = avatarUrl.trim();
+    if (!trimmed) {
+        return null;
+    }
+    if (!trimmed.startsWith("http")) {
+        return trimmed.replace(/^\/+/, "");
+    }
+    try {
+        const parsed = new URL(trimmed);
+        const marker = `/${AVATAR_BUCKET_NAME}/`;
+        const markerIndex = parsed.pathname.indexOf(marker);
+        if (markerIndex === -1) {
+            return null;
+        }
+        const objectPath = parsed.pathname.slice(markerIndex + marker.length);
+        return decodeURIComponent(objectPath).replace(/^\/+/, "");
+    }
+    catch {
+        return null;
+    }
+}
+function appendVersionParam(avatarUrl, updatedAt) {
+    try {
+        const parsed = new URL(avatarUrl);
+        parsed.searchParams.set("v", String(updatedAt.getTime()));
+        return parsed.toString();
+    }
+    catch {
+        return `${avatarUrl}?v=${updatedAt.getTime()}`;
+    }
+}
+async function formatAvatarUrl(avatarUrl, updatedAt) {
+    if (!avatarUrl) {
+        return null;
+    }
+    const avatarPath = extractAvatarPath(avatarUrl);
+    if (avatarPath) {
+        const { data, error } = await supabaseAdmin.storage
+            .from(AVATAR_BUCKET_NAME)
+            .createSignedUrl(avatarPath, 60 * 60 * 24 * 7);
+        if (!error && data?.signedUrl) {
+            return appendVersionParam(data.signedUrl, updatedAt);
+        }
+    }
+    return appendVersionParam(avatarUrl, updatedAt);
+}
 export const getPublicJobs = async (_req, res) => {
     try {
         await prisma.$connect();
@@ -97,18 +187,19 @@ export const getPublicJobs = async (_req, res) => {
                 created_at: "desc",
             },
         });
-        res.status(200).json({
-            jobs: jobs.map((job) => ({
-                job_id: job.job_id,
-                title: job.title,
-                company_name: job.company.name,
-                category: job.category?.title ?? "General",
-                location: job.company.city?.name || job.company.address || "Remote",
-                created_at: job.created_at,
-                salary_label: formatSalaryLabel(job.salary_min, job.salary_max),
-                skills: job.job_skills.map((item) => item.skill.name),
-            })),
-        });
+        const jobsWithLogos = await Promise.all(jobs.map(async (job) => ({
+            job_id: job.job_id,
+            title: job.title,
+            company_name: job.company.name,
+            company_avatar_url: await formatAvatarUrl(job.company.avatar_url, job.company.updated_at),
+            experience_years: job.experience_years,
+            category: job.category?.title ?? "General",
+            location: job.company.city?.name || job.company.address || "Remote",
+            created_at: job.created_at,
+            salary_label: formatSalaryLabel(job.salary_min, job.salary_max),
+            skills: job.job_skills.map((item) => item.skill.name),
+        })));
+        res.status(200).json({ jobs: jobsWithLogos });
     }
     catch (error) {
         console.error("Get public jobs error:", error);
@@ -131,6 +222,7 @@ export const getPublicJobById = async (req, res) => {
             include: {
                 company: {
                     include: {
+                        category: true,
                         city: true,
                     },
                 },
@@ -150,10 +242,18 @@ export const getPublicJobById = async (req, res) => {
             job: {
                 job_id: job.job_id,
                 title: job.title,
+                company_id: job.company.company_id,
                 company_name: job.company.name,
+                company_avatar_url: await formatAvatarUrl(job.company.avatar_url, job.company.updated_at),
+                company_category: job.company.category?.title ?? "General",
+                company_address: [job.company.address, job.company.city?.name]
+                    .filter((value) => Boolean(value && value.trim()))
+                    .join(", ") || "Address not available",
                 category: job.category?.title ?? "General",
                 location: job.company.city?.name || job.company.address || "Remote",
                 created_at: job.created_at,
+                expiration_date: job.expiration_date,
+                experience_years: job.experience_years,
                 salary_label: formatSalaryLabel(job.salary_min, job.salary_max),
                 description: job.description,
                 requirements: job.requirements,
@@ -164,6 +264,314 @@ export const getPublicJobById = async (req, res) => {
     }
     catch (error) {
         console.error("Get public job by id error:", error);
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        res
+            .status(500)
+            .json({ message: "Internal server error", error: errorMessage });
+    }
+};
+export const applyToJob = async (req, res) => {
+    try {
+        await prisma.$connect();
+        const jobId = parseJobId(req.params.jobId);
+        if (!jobId) {
+            res.status(400).json({ message: "Invalid job id" });
+            return;
+        }
+        const userId = parsePositiveInteger(req.body.user_id);
+        if (!userId) {
+            res.status(400).json({ message: "Invalid user id" });
+            return;
+        }
+        const selectedResumeId = parseOptionalInteger(req.body.selected_resume_id);
+        const [job, candidate] = await Promise.all([
+            prisma.job.findUnique({
+                where: { job_id: jobId },
+                select: { job_id: true },
+            }),
+            prisma.candidate.findFirst({
+                where: { user_id: userId },
+                select: { candidate_id: true },
+            }),
+        ]);
+        if (!job) {
+            res.status(404).json({ message: "Job not found" });
+            return;
+        }
+        if (!candidate) {
+            res.status(403).json({ message: "Only candidates can apply" });
+            return;
+        }
+        const existingApplication = await prisma.application.findFirst({
+            where: {
+                job_id: jobId,
+                candidate_id: candidate.candidate_id,
+            },
+            select: { application_id: true },
+        });
+        if (existingApplication) {
+            res.status(409).json({ message: "You have already applied to this job" });
+            return;
+        }
+        let resumeIdToUse = null;
+        if (selectedResumeId) {
+            const selectedResume = await prisma.resume.findFirst({
+                where: {
+                    resume_id: selectedResumeId,
+                    candidate_id: candidate.candidate_id,
+                },
+                select: { resume_id: true },
+            });
+            if (!selectedResume) {
+                res.status(404).json({ message: "Selected CV not found" });
+                return;
+            }
+            resumeIdToUse = selectedResume.resume_id;
+        }
+        else {
+            const file = req.file;
+            if (!file) {
+                res.status(400).json({
+                    message: "Please upload a CV or choose a saved CV",
+                });
+                return;
+            }
+            const allowedMimeTypes = new Set([
+                "application/pdf",
+                "application/msword",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            ]);
+            if (!allowedMimeTypes.has(file.mimetype)) {
+                res.status(400).json({
+                    message: "Only PDF, DOC, or DOCX files are supported",
+                });
+                return;
+            }
+            const originalFileName = decodeUploadedFileName(file.originalname);
+            const extension = (() => {
+                const lower = originalFileName.toLowerCase();
+                if (lower.endsWith(".pdf"))
+                    return "pdf";
+                if (lower.endsWith(".docx"))
+                    return "docx";
+                if (lower.endsWith(".doc"))
+                    return "doc";
+                return file.mimetype === "application/pdf"
+                    ? "pdf"
+                    : file.mimetype.includes("wordprocessingml")
+                        ? "docx"
+                        : "doc";
+            })();
+            const baseName = sanitizeFileName(originalFileName.replace(/\.[^.]+$/, ""));
+            const objectPath = `candidate-${candidate.candidate_id}/applications/${Date.now()}-${baseName || "resume"}.${extension}`;
+            const { error: uploadError } = await supabaseAdmin.storage
+                .from(CV_BUCKET_NAME)
+                .upload(objectPath, file.buffer, {
+                contentType: file.mimetype,
+                upsert: false,
+            });
+            if (uploadError) {
+                res.status(500).json({ message: "Failed to upload CV" });
+                return;
+            }
+            const createdResume = await prisma.resume.create({
+                data: {
+                    candidate_id: candidate.candidate_id,
+                    name: originalFileName,
+                    file_url: objectPath,
+                    isProfile: false,
+                },
+                select: { resume_id: true },
+            });
+            resumeIdToUse = createdResume.resume_id;
+        }
+        if (!resumeIdToUse) {
+            res.status(400).json({ message: "Resume is required to apply" });
+            return;
+        }
+        const createdApplication = await prisma.application.create({
+            data: {
+                candidate_id: candidate.candidate_id,
+                job_id: jobId,
+                resume_id: resumeIdToUse,
+                status: "pending",
+            },
+            select: {
+                application_id: true,
+                status: true,
+            },
+        });
+        void (async () => {
+            try {
+                const jobDetails = await prisma.job.findUnique({
+                    where: { job_id: jobId },
+                    select: {
+                        title: true,
+                        requirements: true,
+                        job_skills: {
+                            include: {
+                                skill: true,
+                            },
+                        },
+                    },
+                });
+                const resume = await prisma.resume.findUnique({
+                    where: { resume_id: resumeIdToUse },
+                    select: { file_url: true },
+                });
+                if (!jobDetails || !resume) {
+                    return;
+                }
+                const cvText = await extractCvTextFromSupabase(resume.file_url);
+                const evaluation = await evaluateApplicationAI({
+                    cvText,
+                    jobRequirements: jobDetails.requirements,
+                    jobSkills: jobDetails.job_skills.map((item) => ({
+                        name: item.skill.name,
+                    })),
+                    jobTitle: jobDetails.title,
+                });
+                await prisma.aIEvaluation.create({
+                    data: {
+                        application_id: createdApplication.application_id,
+                        score: evaluation.score,
+                        matching_skills: evaluation.matchingSkills.join(", "),
+                        missing_skills: evaluation.missingSkills.join(", "),
+                        summary: evaluation.summary,
+                    },
+                });
+            }
+            catch (error) {
+                console.error("AI evaluation error:", error);
+            }
+        })();
+        res.status(201).json({
+            message: "Application submitted successfully",
+            application: createdApplication,
+        });
+    }
+    catch (error) {
+        console.error("Apply to job error:", error);
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        res
+            .status(500)
+            .json({ message: "Internal server error", error: errorMessage });
+    }
+};
+export const getCandidateApplyStatus = async (req, res) => {
+    try {
+        await prisma.$connect();
+        const jobId = parseJobId(req.params.jobId);
+        if (!jobId) {
+            res.status(400).json({ message: "Invalid job id" });
+            return;
+        }
+        const userId = parseUserId(req.params.userId);
+        if (!userId) {
+            res.status(400).json({ message: "Invalid user id" });
+            return;
+        }
+        const candidate = await prisma.candidate.findFirst({
+            where: { user_id: userId },
+            select: { candidate_id: true },
+        });
+        if (!candidate) {
+            res.status(404).json({ message: "Candidate not found" });
+            return;
+        }
+        const application = await prisma.application.findFirst({
+            where: {
+                job_id: jobId,
+                candidate_id: candidate.candidate_id,
+            },
+            select: {
+                application_id: true,
+                status: true,
+            },
+        });
+        res.status(200).json({
+            hasApplied: Boolean(application),
+            application,
+        });
+    }
+    catch (error) {
+        console.error("Get candidate apply status error:", error);
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        res
+            .status(500)
+            .json({ message: "Internal server error", error: errorMessage });
+    }
+};
+export const getJobApplications = async (req, res) => {
+    try {
+        await prisma.$connect();
+        const jobId = parseJobId(req.params.jobId);
+        if (!jobId) {
+            res.status(400).json({ message: "Invalid job id" });
+            return;
+        }
+        const job = await prisma.job.findUnique({
+            where: { job_id: jobId },
+            select: { job_id: true, title: true, created_at: true },
+        });
+        if (!job) {
+            res.status(404).json({ message: "Job not found" });
+            return;
+        }
+        const applications = await prisma.application.findMany({
+            where: { job_id: jobId },
+            include: {
+                candidate: {
+                    include: {
+                        city: true,
+                        user: true,
+                    },
+                },
+                resume: true,
+                ai_evaluations: {
+                    orderBy: { created_at: "desc" },
+                    take: 1,
+                },
+            },
+            orderBy: { created_at: "desc" },
+        });
+        const applicationsWithAvatars = await Promise.all(applications.map(async (application) => ({
+            application_id: application.application_id,
+            status: application.status,
+            created_at: application.created_at,
+            ai_evaluation: application.ai_evaluations[0]
+                ? {
+                    score: application.ai_evaluations[0].score,
+                    matching_skills: application.ai_evaluations[0].matching_skills,
+                    missing_skills: application.ai_evaluations[0].missing_skills,
+                    summary: application.ai_evaluations[0].summary,
+                }
+                : null,
+            candidate: {
+                candidate_id: application.candidate.candidate_id,
+                full_name: application.candidate.full_name,
+                email: application.candidate.user?.email || "",
+                location: application.candidate.city?.name || "N/A",
+                avatar_url: await formatAvatarUrl(application.candidate.avatar_url, application.candidate.user?.updated_at ?? application.created_at),
+            },
+            resume: {
+                resume_id: application.resume.resume_id,
+                name: application.resume.name,
+                file_url: application.resume.file_url,
+            },
+        })));
+        res.status(200).json({
+            job: {
+                job_id: job.job_id,
+                title: job.title,
+                created_at: job.created_at,
+            },
+            applications: applicationsWithAvatars,
+            total: applicationsWithAvatars.length,
+        });
+    }
+    catch (error) {
+        console.error("Get job applications error:", error);
         const errorMessage = error instanceof Error ? error.message : "Unknown error";
         res
             .status(500)
@@ -260,6 +668,7 @@ export const createRecruiterJob = async (req, res) => {
             ? req.body.requirements.trim()
             : null;
         const benefits = typeof req.body.benefits === "string" ? req.body.benefits.trim() : null;
+        const experienceYears = parseOptionalNonNegativeInteger(req.body.experience_years);
         const categoryId = parsePositiveInteger(req.body.category_id);
         const salaryMin = parseOptionalInteger(req.body.salary_min);
         const salaryMax = parseOptionalInteger(req.body.salary_max);
@@ -277,6 +686,13 @@ export const createRecruiterJob = async (req, res) => {
         }
         if (!categoryId) {
             res.status(400).json({ message: "Job category is required" });
+            return;
+        }
+        if (req.body.experience_years !== undefined &&
+            parseOptionalNonNegativeInteger(req.body.experience_years) === null) {
+            res
+                .status(400)
+                .json({ message: "Experience years must be a non-negative integer" });
             return;
         }
         if (salaryMin !== null && salaryMax !== null && salaryMin > salaryMax) {
@@ -316,6 +732,7 @@ export const createRecruiterJob = async (req, res) => {
                     title,
                     description,
                     requirements,
+                    experience_years: experienceYears,
                     salary_min: salaryMin,
                     salary_max: salaryMax,
                     benefits,
@@ -475,6 +892,7 @@ export const getRecruiterJobById = async (req, res) => {
                 title: job.title,
                 description: job.description,
                 requirements: job.requirements,
+                experience_years: job.experience_years,
                 salary_min: job.salary_min,
                 salary_max: job.salary_max,
                 benefits: job.benefits,
@@ -540,6 +958,7 @@ export const updateRecruiterJob = async (req, res) => {
             ? req.body.requirements.trim()
             : null;
         const benefits = typeof req.body.benefits === "string" ? req.body.benefits.trim() : null;
+        const experienceYears = parseOptionalNonNegativeInteger(req.body.experience_years);
         const categoryId = parsePositiveInteger(req.body.category_id);
         const salaryMin = parseOptionalInteger(req.body.salary_min);
         const salaryMax = parseOptionalInteger(req.body.salary_max);
@@ -557,6 +976,13 @@ export const updateRecruiterJob = async (req, res) => {
         }
         if (!categoryId) {
             res.status(400).json({ message: "Job category is required" });
+            return;
+        }
+        if (req.body.experience_years !== undefined &&
+            parseOptionalNonNegativeInteger(req.body.experience_years) === null) {
+            res
+                .status(400)
+                .json({ message: "Experience years must be a non-negative integer" });
             return;
         }
         if (salaryMin !== null && salaryMax !== null && salaryMin > salaryMax) {
@@ -597,6 +1023,7 @@ export const updateRecruiterJob = async (req, res) => {
                     title,
                     description,
                     requirements,
+                    experience_years: experienceYears,
                     salary_min: salaryMin,
                     salary_max: salaryMax,
                     benefits,

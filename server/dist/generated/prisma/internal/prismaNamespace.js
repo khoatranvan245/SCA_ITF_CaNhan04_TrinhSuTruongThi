@@ -129,6 +129,7 @@ export const JobScalarFieldEnum = {
     title: 'title',
     description: 'description',
     requirements: 'requirements',
+    experience_years: 'experience_years',
     salary_min: 'salary_min',
     salary_max: 'salary_max',
     benefits: 'benefits',
@@ -143,15 +144,17 @@ export const CandidateScalarFieldEnum = {
     candidate_id: 'candidate_id',
     full_name: 'full_name',
     phone: 'phone',
-    experience_years: 'experience_years',
+    avatar_url: 'avatar_url',
     user_id: 'user_id',
     city_id: 'city_id'
 };
 export const ResumeScalarFieldEnum = {
     resume_id: 'resume_id',
     candidate_id: 'candidate_id',
+    name: 'name',
     file_url: 'file_url',
-    uploaded_at: 'uploaded_at'
+    uploaded_at: 'uploaded_at',
+    isProfile: 'isProfile'
 };
 export const ApplicationScalarFieldEnum = {
     application_id: 'application_id',

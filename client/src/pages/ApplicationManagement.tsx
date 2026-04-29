@@ -13,6 +13,12 @@ type JobApplication = {
   application_id: number;
   status: string;
   created_at: string;
+  ai_evaluation?: {
+    score: number | null;
+    matching_skills: string;
+    missing_skills: string;
+    summary: string;
+  } | null;
   candidate: {
     candidate_id: number;
     full_name: string;
@@ -70,6 +76,26 @@ const formatDate = (value: string) => {
     day: "2-digit",
     year: "numeric",
   });
+};
+
+const getScoreBadgeClass = (score: number | null | undefined) => {
+  if (score === null || score === undefined) {
+    return "bg-surface-container-high text-secondary";
+  }
+
+  if (score >= 80) {
+    return "bg-green-100 text-green-800";
+  }
+
+  if (score >= 60) {
+    return "bg-blue-100 text-blue-800";
+  }
+
+  if (score >= 40) {
+    return "bg-orange-100 text-orange-800";
+  }
+
+  return "bg-red-100 text-red-800";
 };
 
 const ApplicationManagement = () => {
@@ -255,6 +281,9 @@ const ApplicationManagement = () => {
                 <th className="px-6 py-5 font-bold text-[0.7rem] uppercase tracking-wider">
                   Status
                 </th>
+                <th className="px-6 py-5 font-bold text-[0.7rem] uppercase tracking-wider whitespace-nowrap">
+                  AI Score
+                </th>
                 <th className="px-6 py-5 font-bold text-[0.7rem] uppercase tracking-wider">
                   Email Address
                 </th>
@@ -268,7 +297,7 @@ const ApplicationManagement = () => {
               {paginatedApplications.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={6}
+                    colSpan={7}
                     className="px-8 py-8 text-center text-secondary text-sm"
                   >
                     {applications.length === 0
@@ -325,6 +354,23 @@ const ApplicationManagement = () => {
                         ></span>
                         {statusLabels[application.status] || application.status}
                       </span>
+                    </td>
+                    <td className="px-6 py-6">
+                      {application.ai_evaluation?.score === null ||
+                      application.ai_evaluation?.score === undefined ? (
+                        <span className="text-sm text-secondary">
+                          Evaluating...
+                        </span>
+                      ) : (
+                        <span
+                          className={`${getScoreBadgeClass(
+                            application.ai_evaluation.score,
+                          )} inline-flex items-center rounded-full px-3 py-1 text-xs font-bold`}
+                          title={application.ai_evaluation.summary}
+                        >
+                          {application.ai_evaluation.score}%
+                        </span>
+                      )}
                     </td>
                     <td className="px-6 py-6 text-sm text-secondary font-medium">
                       {application.candidate.email}

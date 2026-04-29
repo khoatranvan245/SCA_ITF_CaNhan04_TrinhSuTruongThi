@@ -1,6 +1,10 @@
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
 import { supabaseAdmin } from "../lib/supabaseAdmin";
+import {
+  evaluateApplicationAI,
+  extractCvTextFromSupabase,
+} from "../lib/aiEvaluation";
 
 const AVATAR_BUCKET_NAME = "Avatar";
 const CV_BUCKET_NAME = "CV";
@@ -485,6 +489,54 @@ export const applyToJob = async (req: Request, res: Response) => {
       },
     });
 
+    void (async () => {
+      try {
+        const jobDetails = await prisma.job.findUnique({
+          where: { job_id: jobId },
+          select: {
+            title: true,
+            requirements: true,
+            job_skills: {
+              include: {
+                skill: true,
+              },
+            },
+          },
+        });
+
+        const resume = await prisma.resume.findUnique({
+          where: { resume_id: resumeIdToUse },
+          select: { file_url: true },
+        });
+
+        if (!jobDetails || !resume) {
+          return;
+        }
+
+        const cvText = await extractCvTextFromSupabase(resume.file_url);
+        const evaluation = await evaluateApplicationAI({
+          cvText,
+          jobRequirements: jobDetails.requirements,
+          jobSkills: jobDetails.job_skills.map((item) => ({
+            name: item.skill.name,
+          })),
+          jobTitle: jobDetails.title,
+        });
+
+        await prisma.aIEvaluation.create({
+          data: {
+            application_id: createdApplication.application_id,
+            score: evaluation.score,
+            matching_skills: evaluation.matchingSkills.join(", "),
+            missing_skills: evaluation.missingSkills.join(", "),
+            summary: evaluation.summary,
+          },
+        });
+      } catch (error) {
+        console.error("AI evaluation error:", error);
+      }
+    })();
+
     res.status(201).json({
       message: "Application submitted successfully",
       application: createdApplication,
@@ -580,6 +632,10 @@ export const getJobApplications = async (req: Request, res: Response) => {
           },
         },
         resume: true,
+        ai_evaluations: {
+          orderBy: { created_at: "desc" },
+          take: 1,
+        },
       },
       orderBy: { created_at: "desc" },
     });
@@ -589,6 +645,14 @@ export const getJobApplications = async (req: Request, res: Response) => {
         application_id: application.application_id,
         status: application.status,
         created_at: application.created_at,
+        ai_evaluation: application.ai_evaluations[0]
+          ? {
+              score: application.ai_evaluations[0].score,
+              matching_skills: application.ai_evaluations[0].matching_skills,
+              missing_skills: application.ai_evaluations[0].missing_skills,
+              summary: application.ai_evaluations[0].summary,
+            }
+          : null,
         candidate: {
           candidate_id: application.candidate.candidate_id,
           full_name: application.candidate.full_name,

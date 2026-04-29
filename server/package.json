@@ -15,6 +15,7 @@
     "seed:jobs": "tsx prisma/seed-jobs.ts"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@prisma/adapter-pg": "^7.6.0",
     "@prisma/client": "^6.19.3",
     "@supabase/ssr": "^0.10.2",
@@ -24,6 +25,8 @@
     "dotenv": "^17.4.0",
     "express": "^5.2.1",
     "multer": "^2.1.1",
+    "openai": "^6.34.0",
+    "pdf-parse": "^2.4.5",
     "pg": "^8.20.0",
     "sharp": "^0.34.5",
     "tsx": "^4.21.0"
@@ -32,6 +35,7 @@
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/node": "^25.5.0",
+    "@types/pdf-parse": "^1.1.5",
     "@types/pg": "^8.20.0",
     "nodemon": "^3.1.14",
     "prisma": "^6.19.3",
