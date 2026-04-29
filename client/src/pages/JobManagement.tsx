@@ -291,7 +291,11 @@ const JobManagement = () => {
                             <button
                               type="button"
                               className="font-bold text-primary hover:text-surface-tint transition-colors text-left cursor-pointer"
-                              onClick={() => navigate(`/jobs/${job.job_id}`)}
+                              onClick={() =>
+                                navigate(
+                                  `/application-management/${job.job_id}`,
+                                )
+                              }
                             >
                               {job.title}
                             </button>
@@ -305,14 +309,9 @@ const JobManagement = () => {
                         {formatDate(job.created_at)}
                       </td>
                       <td className="px-8 py-6 text-center">
-                        <button
-                          className="inline-block bg-primary-fixed text-on-primary-fixed-variant px-3 py-1 rounded-full text-xs font-bold hover:opacity-80 transition-opacity cursor-pointer"
-                          onClick={() =>
-                            navigate(`/application-management/${job.job_id}`)
-                          }
-                        >
+                        <span className="inline-block bg-surface-container-highest text-secondary px-3 py-1 rounded-full text-xs font-bold">
                           {job.applicants_count}
-                        </button>
+                        </span>
                       </td>
                       <td className="px-8 py-6">
                         <span
