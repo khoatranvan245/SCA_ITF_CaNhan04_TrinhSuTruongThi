@@ -1,15 +1,100 @@
 import { prisma } from "../src/lib/prisma";
 
 const jobCategories = [
+  // IT
   "Software Development",
-  "Data & AI",
-  "Design",
-  "Product Management",
-  "QA & Testing",
-  "DevOps & Cloud",
+  "Frontend Development",
+  "Backend Development",
+  "Fullstack Development",
+  "Mobile Development",
+  "DevOps",
+  "Data Science",
+  "Artificial Intelligence",
   "Cybersecurity",
-  "Business & Operations",
-  "Sales & Marketing",
+  "Game Development",
+  "QA/QC",
+
+  // Business
+  "Business Analysis",
+  "Project Management",
+  "Product Management",
+  "Operations Management",
+
+  // Marketing & Sales
+  "Digital Marketing",
+  "Content Marketing",
+  "SEO/SEM",
+  "Social Media Management",
+  "Sales",
+  "Account Management",
+
+  // Finance
+  "Accounting",
+  "Auditing",
+  "Financial Analysis",
+  "Investment",
+
+  // HR
+  "Recruitment",
+  "Human Resources",
+  "Training & Development",
+
+  // Design
+  "UI/UX Design",
+  "Graphic Design",
+  "Motion Design",
+
+  // Customer
+  "Customer Support",
+  "Customer Success",
+
+  // Education
+  "Teaching",
+  "Training",
+  "Academic Research",
+
+  // Healthcare
+  "Nursing",
+  "Medical Doctor",
+  "Pharmacy",
+  "Healthcare Support",
+
+  // Logistics
+  "Supply Chain",
+  "Logistics",
+  "Warehouse Management",
+  "Procurement",
+
+  // Manufacturing
+  "Production",
+  "Quality Control",
+  "Mechanical Engineering",
+  "Electrical Engineering",
+
+  // Construction
+  "Civil Engineering",
+  "Construction Management",
+  "Architecture",
+
+  // Hospitality & Tourism
+  "Hotel Management",
+  "Travel Consultant",
+  "Tour Guide",
+
+  // Media
+  "Content Creation",
+  "Journalism",
+  "Video Production",
+
+  // Retail
+  "Retail Management",
+  "Store Operations",
+
+  // Others
+  "Legal",
+  "Administration",
+  "Translation",
+  "Freelance",
 ];
 
 function normalizeTitle(value: string): string {
@@ -31,7 +116,8 @@ async function seedJobCategories() {
   );
 
   const categoriesToInsert: string[] = [];
-  const categoriesToUpdate: Array<{ job_category_id: number; title: string }> = [];
+  const categoriesToUpdate: Array<{ job_category_id: number; title: string }> =
+    [];
 
   for (const title of jobCategories) {
     const normalizedTitle = normalizeTitle(title);

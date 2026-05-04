@@ -1,16 +1,26 @@
 import { prisma } from "../src/lib/prisma";
 
 const companyCategories = [
-  "Technology",
+  "Information Technology",
+  "Finance & Banking",
   "Education",
   "Healthcare",
-  "Finance",
   "E-commerce",
+  "Marketing & Advertising",
+  "Real Estate",
   "Manufacturing",
+  "Logistics & Supply Chain",
+  "Telecommunications",
   "Media & Entertainment",
-  "Consulting",
+  "Travel & Tourism",
+  "Energy & Utilities",
+  "Construction",
+  "Agriculture",
   "Retail",
-  "Logistics",
+  "Food & Beverage",
+  "Automotive",
+  "Insurance",
+  "Consulting",
 ];
 
 function normalizeTitle(value: string): string {
@@ -32,7 +42,10 @@ async function seedCompanyCategories() {
   );
 
   const categoriesToInsert: string[] = [];
-  const categoriesToUpdate: Array<{ company_category_id: number; title: string }> = [];
+  const categoriesToUpdate: Array<{
+    company_category_id: number;
+    title: string;
+  }> = [];
 
   for (const title of companyCategories) {
     const normalizedTitle = normalizeTitle(title);
