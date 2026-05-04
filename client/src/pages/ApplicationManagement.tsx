@@ -4,15 +4,23 @@ import { useNavigate, useParams } from "react-router-dom";
 type StoredUser = {
   user_id?: number;
   role?: {
-    role_id?: number;
     title?: string;
   };
+};
+
+type CompanySummary = {
+  company_id: number;
+  name: string;
 };
 
 type JobApplication = {
   application_id: number;
   status: string;
   created_at: string;
+  job?: {
+    job_id: number;
+    title: string;
+  };
   ai_evaluation?: {
     score: number | null;
     matching_skills: string;
@@ -100,8 +108,9 @@ const getScoreBadgeClass = (score: number | null | undefined) => {
 
 const ApplicationManagement = () => {
   const navigate = useNavigate();
-  const { jobId } = useParams<{ jobId: string }>();
+  const { jobId } = useParams<{ jobId?: string }>();
   const [job, setJob] = useState<JobData | null>(null);
+  const [company, setCompany] = useState<CompanySummary | null>(null);
   const [applications, setApplications] = useState<JobApplication[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -123,16 +132,13 @@ const ApplicationManagement = () => {
   }, [rawUser]);
 
   const userId = parsedUser?.user_id;
-  const isRecruiter =
-    parsedUser?.role?.role_id === 2 ||
-    parsedUser?.role?.title?.toLowerCase() === "recruiter";
+  const isRecruiter = parsedUser?.role?.title?.toLowerCase() === "recruiter";
 
   useEffect(() => {
-    if (!userId || !isRecruiter || !jobId) {
+    if (!userId || !isRecruiter) {
       if (!userId || !isRecruiter) {
         navigate("/recruiter-login", { replace: true });
       }
-      return;
     }
 
     const fetchApplications = async () => {
@@ -140,9 +146,11 @@ const ApplicationManagement = () => {
       setError("");
 
       try {
-        const response = await fetch(
-          `http://localhost:3000/api/jobs/${jobId}/applications`,
-        );
+        const endpoint = jobId
+          ? `http://localhost:3000/api/jobs/${jobId}/applications`
+          : `http://localhost:3000/api/jobs/recruiter/${userId}/applications`;
+
+        const response = await fetch(endpoint);
         const data = await response.json();
 
         if (!response.ok) {
@@ -150,7 +158,8 @@ const ApplicationManagement = () => {
           return;
         }
 
-        setJob(data.job);
+        setJob(data.job || null);
+        setCompany(data.company || null);
         setApplications(data.applications || []);
       } catch (err) {
         setError("An error occurred while loading applications.");
@@ -215,14 +224,18 @@ const ApplicationManagement = () => {
           <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
             <div className="w-full">
               <h1 className="text-4xl font-extrabold text-primary tracking-tight mb-2">
-                {job?.title || "Job Applications"}
+                {job?.title || company?.name || "Application Management"}
               </h1>
               <div className="flex items-center gap-4 text-secondary mb-6">
                 <span className="flex items-center gap-1">
                   <span className="material-symbols-outlined text-base">
                     schedule
                   </span>
-                  Posted {job ? formatDate(job.created_at) : "N/A"}
+                  {job
+                    ? `Posted ${formatDate(job.created_at)}`
+                    : company
+                      ? `All applications for ${company.name}`
+                      : "All company applications"}
                 </span>
               </div>
               <div className="mt-8 border-t border-outline-variant/20 pt-8">
@@ -271,6 +284,9 @@ const ApplicationManagement = () => {
                   Applied Date
                 </th>
                 <th className="px-6 py-5 font-bold text-[0.7rem] uppercase tracking-wider">
+                  Job
+                </th>
+                <th className="px-6 py-5 font-bold text-[0.7rem] uppercase tracking-wider">
                   Status
                 </th>
                 <th className="px-6 py-5 font-bold text-[0.7rem] uppercase tracking-wider whitespace-nowrap">
@@ -287,7 +303,7 @@ const ApplicationManagement = () => {
               {paginatedApplications.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={6}
+                    colSpan={7}
                     className="px-8 py-8 text-center text-secondary text-sm"
                   >
                     {applications.length === 0
@@ -328,6 +344,9 @@ const ApplicationManagement = () => {
                     </td>
                     <td className="px-6 py-6 text-sm text-secondary">
                       {formatDate(application.created_at)}
+                    </td>
+                    <td className="px-6 py-6 text-sm text-secondary font-medium">
+                      {application.job?.title || job?.title || "Job"}
                     </td>
                     <td className="px-6 py-6">
                       <span
@@ -373,8 +392,8 @@ const ApplicationManagement = () => {
                           title="View Details"
                           onClick={() =>
                             navigate(
-                              `/application-management/${jobId}/${application.application_id}`,
-                              { state: { application, job } },
+                              `/application-management/${application.job?.job_id || job?.job_id}/${application.application_id}`,
+                              { state: { application, job: application.job || job } },
                             )
                           }
                         >

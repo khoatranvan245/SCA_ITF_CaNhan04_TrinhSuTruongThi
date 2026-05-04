@@ -379,7 +379,7 @@ export const getCompanyProfile = async (req: Request, res: Response) => {
       include: { role: true },
     });
 
-    if (!user || user.role_id !== ROLE_RECRUITER) {
+    if (!user || user.role?.title?.toLowerCase() !== "recruiter") {
       res.status(403).json({ message: "Access denied" });
       return;
     }
@@ -431,7 +431,7 @@ export const updateCompanyProfile = async (req: Request, res: Response) => {
       include: { role: true },
     });
 
-    if (!user || user.role_id !== ROLE_RECRUITER) {
+    if (!user || user.role?.title?.toLowerCase() !== "recruiter") {
       res.status(403).json({ message: "Access denied" });
       return;
     }

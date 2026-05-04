@@ -59,11 +59,11 @@ const getUserRole = () => {
   const user = getStoredUser();
   const roleTitle = user?.role?.title?.toLowerCase();
 
-  if (user?.role?.role_id === 2 || roleTitle === "recruiter") {
+  if (roleTitle === "recruiter") {
     return "recruiter";
   }
 
-  if (user?.role?.role_id === 3 || roleTitle === "candidate") {
+  if (roleTitle === "candidate") {
     return "candidate";
   }
 
@@ -79,9 +79,7 @@ const RecruiterPrivateRoute = () => {
 
   try {
     const user = JSON.parse(rawUser) as StoredUser;
-    const isRecruiter =
-      user?.role?.role_id === 2 ||
-      user?.role?.title?.toLowerCase() === "recruiter";
+    const isRecruiter = user?.role?.title?.toLowerCase() === "recruiter";
 
     if (!isRecruiter) {
       return <Navigate to="/recruiter-login" replace />;
@@ -102,9 +100,7 @@ const CandidatePrivateRoute = () => {
 
   try {
     const user = JSON.parse(rawUser) as StoredUser;
-    const isCandidate =
-      user?.role?.role_id === 3 ||
-      user?.role?.title?.toLowerCase() === "candidate";
+    const isCandidate = user?.role?.title?.toLowerCase() === "candidate";
 
     if (!isCandidate) {
       return <Navigate to="/candidate-login" replace />;
@@ -192,6 +188,10 @@ const App = () => {
           <Route element={<RecruiterPrivateRoute />}>
             <Route element={<RecruiterLayout />}>
               <Route path="/company-profile" element={<CompanyProfile />} />
+              <Route
+                path="/application-management"
+                element={<ApplicationManagement />}
+              />
               <Route
                 path="/application-management/:jobId"
                 element={<ApplicationManagement />}

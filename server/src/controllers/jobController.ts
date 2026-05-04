@@ -9,8 +9,6 @@ import {
 const AVATAR_BUCKET_NAME = "Avatar";
 const CV_BUCKET_NAME = "CV";
 
-const ROLE_RECRUITER = 2;
-
 function parseUserId(rawUserId: string | string[] | undefined): number | null {
   const normalizedValue = Array.isArray(rawUserId) ? rawUserId[0] : rawUserId;
   const userId = Number(normalizedValue);
@@ -720,6 +718,126 @@ export const getJobApplications = async (req: Request, res: Response) => {
   }
 };
 
+export const getRecruiterApplications = async (req: Request, res: Response) => {
+  try {
+    await prisma.$connect();
+
+    const userId = parseUserId(req.params.userId);
+    if (!userId) {
+      res.status(400).json({ message: "Invalid user id" });
+      return;
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { user_id: userId },
+      include: { role: true },
+    });
+
+    if (!user || user.role?.title?.toLowerCase() !== "recruiter") {
+      res.status(403).json({ message: "Access denied" });
+      return;
+    }
+
+    const company = await prisma.company.findFirst({
+      where: { user_id: userId },
+      select: {
+        company_id: true,
+        name: true,
+      },
+    });
+
+    if (!company) {
+      res.status(404).json({ message: "Company not found for this recruiter" });
+      return;
+    }
+
+    const jobs = await prisma.job.findMany({
+      where: { company_id: company.company_id },
+      select: {
+        job_id: true,
+        title: true,
+        created_at: true,
+      },
+      orderBy: { created_at: "desc" },
+    });
+
+    const jobLookup = new Map(jobs.map((job) => [job.job_id, job] as const));
+
+    const applications = jobs.length
+      ? await prisma.application.findMany({
+          where: {
+            job_id: {
+              in: jobs.map((job) => job.job_id),
+            },
+          },
+          include: {
+            candidate: {
+              include: {
+                city: true,
+                user: true,
+              },
+            },
+            resume: true,
+            ai_evaluations: {
+              orderBy: { created_at: "desc" },
+              take: 1,
+            },
+          },
+          orderBy: { created_at: "desc" },
+        })
+      : [];
+
+    const applicationsWithAvatars = await Promise.all(
+      applications.map(async (application) => ({
+        application_id: application.application_id,
+        status: application.status,
+        created_at: application.created_at,
+        job: {
+          job_id: application.job_id,
+          title: jobLookup.get(application.job_id)?.title ?? "Job",
+        },
+        ai_evaluation: application.ai_evaluations[0]
+          ? {
+              score: application.ai_evaluations[0].score,
+              matching_skills: application.ai_evaluations[0].matching_skills,
+              missing_skills: application.ai_evaluations[0].missing_skills,
+              summary: application.ai_evaluations[0].summary,
+            }
+          : null,
+        candidate: {
+          candidate_id: application.candidate.candidate_id,
+          full_name: application.candidate.full_name,
+          email: application.candidate.user?.email || "",
+          phone: application.candidate.phone || "",
+          location: application.candidate.city?.name || "N/A",
+          avatar_url: await formatAvatarUrl(
+            application.candidate.avatar_url,
+            application.candidate.user?.updated_at ?? application.created_at,
+          ),
+        },
+        resume: {
+          resume_id: application.resume.resume_id,
+          name: application.resume.name,
+          file_url: application.resume.file_url,
+        },
+      })),
+    );
+
+    res.status(200).json({
+      company,
+      applications: applicationsWithAvatars,
+      total: applicationsWithAvatars.length,
+    });
+  } catch (error) {
+    console.error("Get recruiter applications error:", error);
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
+    res
+      .status(500)
+      .json({ message: "Internal server error", error: errorMessage });
+  }
+};
+
 export const getRecruiterJobs = async (req: Request, res: Response) => {
   try {
     await prisma.$connect();
@@ -735,7 +853,7 @@ export const getRecruiterJobs = async (req: Request, res: Response) => {
       include: { role: true },
     });
 
-    if (!user || user.role_id !== ROLE_RECRUITER) {
+    if (!user || user.role?.title?.toLowerCase() !== "recruiter") {
       res.status(403).json({ message: "Access denied" });
       return;
     }
@@ -803,7 +921,7 @@ export const createRecruiterJob = async (req: Request, res: Response) => {
       include: { role: true },
     });
 
-    if (!user || user.role_id !== ROLE_RECRUITER) {
+    if (!user || user.role?.title?.toLowerCase() !== "recruiter") {
       res.status(403).json({ message: "Access denied" });
       return;
     }
@@ -1064,7 +1182,7 @@ export const getRecruiterJobById = async (req: Request, res: Response) => {
       include: { role: true },
     });
 
-    if (!user || user.role_id !== ROLE_RECRUITER) {
+    if (!user || user.role?.title?.toLowerCase() !== "recruiter") {
       res.status(403).json({ message: "Access denied" });
       return;
     }
@@ -1145,7 +1263,7 @@ export const updateRecruiterJob = async (req: Request, res: Response) => {
       include: { role: true },
     });
 
-    if (!user || user.role_id !== ROLE_RECRUITER) {
+    if (!user || user.role?.title?.toLowerCase() !== "recruiter") {
       res.status(403).json({ message: "Access denied" });
       return;
     }
@@ -1372,7 +1490,7 @@ export const deleteRecruiterJob = async (req: Request, res: Response) => {
       include: { role: true },
     });
 
-    if (!user || user.role_id !== ROLE_RECRUITER) {
+    if (!user || user.role?.title?.toLowerCase() !== "recruiter") {
       res.status(403).json({ message: "Access denied" });
       return;
     }

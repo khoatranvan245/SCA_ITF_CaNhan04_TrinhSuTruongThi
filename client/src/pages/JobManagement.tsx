@@ -76,9 +76,7 @@ const JobManagement = () => {
   }, [rawUser]);
 
   const userId = parsedUser?.user_id;
-  const isRecruiter =
-    parsedUser?.role?.role_id === 2 ||
-    parsedUser?.role?.title?.toLowerCase() === "recruiter";
+  const isRecruiter = parsedUser?.role?.title?.toLowerCase() === "recruiter";
 
   useEffect(() => {
     if (!userId || !isRecruiter) {

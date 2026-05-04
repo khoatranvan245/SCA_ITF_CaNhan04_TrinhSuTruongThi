@@ -28,9 +28,7 @@ const RecruiterLayout = () => {
 
     try {
       const user = JSON.parse(rawUser) as StoredUser;
-      const isRecruiter =
-        user?.role?.role_id === 2 ||
-        user?.role?.title?.toLowerCase() === "recruiter";
+      const isRecruiter = user?.role?.title?.toLowerCase() === "recruiter";
 
       if (!isRecruiter || typeof user.user_id !== "number") {
         return null;
