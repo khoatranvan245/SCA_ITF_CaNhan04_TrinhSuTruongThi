@@ -189,14 +189,6 @@ const ApplicationManagement = () => {
     setCurrentPage(1);
   }, [searchQuery]);
 
-  const handleViewCV = async (fileUrl: string) => {
-    try {
-      window.open(fileUrl, "_blank");
-    } catch (err) {
-      console.error("View CV error:", err);
-    }
-  };
-
   if (isLoading) {
     return (
       <main className="w-full max-w-360 mx-auto px-12 py-12 selection:bg-primary-container selection:text-on-primary">
@@ -287,9 +279,7 @@ const ApplicationManagement = () => {
                 <th className="px-6 py-5 font-bold text-[0.7rem] uppercase tracking-wider">
                   Email Address
                 </th>
-                <th className="w-24 px-4 py-5 font-bold text-[0.7rem] uppercase tracking-wider whitespace-nowrap">
-                  CV
-                </th>
+
                 <th className="px-8 py-5 font-bold text-[0.7rem] uppercase tracking-wider text-right"></th>
               </tr>
             </thead>
@@ -297,7 +287,7 @@ const ApplicationManagement = () => {
               {paginatedApplications.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={7}
+                    colSpan={6}
                     className="px-8 py-8 text-center text-secondary text-sm"
                   >
                     {applications.length === 0
@@ -375,24 +365,18 @@ const ApplicationManagement = () => {
                     <td className="px-6 py-6 text-sm text-secondary font-medium">
                       {application.candidate.email}
                     </td>
-                    <td className="w-24 px-4 py-6">
-                      <button
-                        onClick={() =>
-                          handleViewCV(application.resume.file_url)
-                        }
-                        className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg bg-surface-container-high text-secondary hover:text-primary hover:bg-surface-container-highest transition-colors text-[0.65rem] font-bold uppercase tracking-wider whitespace-nowrap"
-                      >
-                        <span className="material-symbols-outlined text-sm">
-                          description
-                        </span>
-                        CV
-                      </button>
-                    </td>
+
                     <td className="px-8 py-6 text-right">
                       <div className="flex justify-end gap-3 text-secondary">
                         <button
                           className="p-2 hover:bg-surface-container-high rounded-lg transition-colors text-secondary"
                           title="View Details"
+                          onClick={() =>
+                            navigate(
+                              `/application-management/${jobId}/${application.application_id}`,
+                              { state: { application, job } },
+                            )
+                          }
                         >
                           <span className="material-symbols-outlined">
                             chevron_right

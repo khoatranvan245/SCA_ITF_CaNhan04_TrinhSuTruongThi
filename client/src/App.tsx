@@ -18,6 +18,7 @@ import JobManagement from "./pages/JobManagement";
 import JobPost from "./pages/JobPost";
 import JobEdit from "./pages/JobEdit";
 import ApplicationManagement from "./pages/ApplicationManagement";
+import ApplicationDetail from "./pages/ApplicationDetail";
 import CandidateProfile from "./pages/CandidateProfile";
 import CandidateApplications from "./pages/CandidateApplications";
 import PublicLayout from "./layouts/PublicLayout";
@@ -194,6 +195,10 @@ const App = () => {
               <Route
                 path="/application-management/:jobId"
                 element={<ApplicationManagement />}
+              />
+              <Route
+                path="/application-management/:jobId/:applicationId"
+                element={<ApplicationDetail />}
               />
               <Route path="/job-management" element={<Outlet />}>
                 <Route index element={<JobManagement />} />

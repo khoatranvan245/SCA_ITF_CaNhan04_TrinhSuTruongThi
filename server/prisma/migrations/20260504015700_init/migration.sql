@@ -1,22 +1,8 @@
-/*
-  Warnings:
-
-  - The primary key for the `User` table will be changed. If it partially fails, the table could be left without primary key constraint.
-  - The `user_id` column on the `User` table would be dropped and recreated. This will lead to data loss if there is data in the column.
-  - Added the required column `role_id` to the `User` table without a default value. This is not possible if the table is not empty.
-  - Added the required column `updated_at` to the `User` table without a default value. This is not possible if the table is not empty.
-
-*/
 -- CreateEnum
 CREATE TYPE "JobStatus" AS ENUM ('open', 'closed', 'pending', 'expired');
 
--- AlterTable
-ALTER TABLE "User" DROP CONSTRAINT "User_pkey",
-ADD COLUMN     "role_id" INTEGER NOT NULL,
-ADD COLUMN     "updated_at" TIMESTAMP(3) NOT NULL,
-DROP COLUMN "user_id",
-ADD COLUMN     "user_id" SERIAL NOT NULL,
-ADD CONSTRAINT "User_pkey" PRIMARY KEY ("user_id");
+-- CreateEnum
+CREATE TYPE "ApplicationStatus" AS ENUM ('pending', 'reviewing', 'rejected', 'accepted');
 
 -- CreateTable
 CREATE TABLE "Role" (
@@ -29,15 +15,30 @@ CREATE TABLE "Role" (
 );
 
 -- CreateTable
+CREATE TABLE "User" (
+    "user_id" SERIAL NOT NULL,
+    "email" TEXT NOT NULL,
+    "password_hash" TEXT NOT NULL,
+    "role_id" INTEGER NOT NULL,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "User_pkey" PRIMARY KEY ("user_id")
+);
+
+-- CreateTable
 CREATE TABLE "Company" (
     "company_id" SERIAL NOT NULL,
     "name" TEXT NOT NULL,
     "description" TEXT,
-    "location" TEXT,
     "website" TEXT,
+    "avatar_url" TEXT,
+    "category_id" INTEGER,
     "user_id" INTEGER NOT NULL,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
+    "city_id" INTEGER,
+    "address" TEXT,
 
     CONSTRAINT "Company_pkey" PRIMARY KEY ("company_id")
 );
@@ -59,7 +60,7 @@ CREATE TABLE "Job" (
     "title" TEXT NOT NULL,
     "description" TEXT,
     "requirements" TEXT,
-    "location" TEXT,
+    "experience_years" INTEGER DEFAULT 0,
     "salary_min" INTEGER,
     "salary_max" INTEGER,
     "benefits" TEXT,
@@ -78,9 +79,9 @@ CREATE TABLE "Candidate" (
     "candidate_id" SERIAL NOT NULL,
     "full_name" TEXT NOT NULL,
     "phone" TEXT,
-    "location" TEXT,
-    "experience_years" INTEGER,
+    "avatar_url" TEXT,
     "user_id" INTEGER NOT NULL,
+    "city_id" INTEGER NOT NULL,
 
     CONSTRAINT "Candidate_pkey" PRIMARY KEY ("candidate_id")
 );
@@ -89,8 +90,10 @@ CREATE TABLE "Candidate" (
 CREATE TABLE "Resume" (
     "resume_id" SERIAL NOT NULL,
     "candidate_id" INTEGER NOT NULL,
+    "name" TEXT NOT NULL,
     "file_url" TEXT NOT NULL,
     "uploaded_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "isProfile" BOOLEAN NOT NULL DEFAULT false,
 
     CONSTRAINT "Resume_pkey" PRIMARY KEY ("resume_id")
 );
@@ -101,7 +104,8 @@ CREATE TABLE "Application" (
     "candidate_id" INTEGER NOT NULL,
     "job_id" INTEGER NOT NULL,
     "resume_id" INTEGER NOT NULL,
-    "status" TEXT NOT NULL,
+    "cover_letter" TEXT,
+    "status" "ApplicationStatus" NOT NULL DEFAULT 'pending',
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
 
@@ -146,11 +150,29 @@ CREATE TABLE "CandidateSkill" (
     CONSTRAINT "CandidateSkill_pkey" PRIMARY KEY ("candidate_id","skill_id")
 );
 
+-- CreateTable
+CREATE TABLE "City" (
+    "city_id" SERIAL NOT NULL,
+    "name" TEXT NOT NULL,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "City_pkey" PRIMARY KEY ("city_id")
+);
+
+-- CreateIndex
+CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
+
 -- AddForeignKey
 ALTER TABLE "User" ADD CONSTRAINT "User_role_id_fkey" FOREIGN KEY ("role_id") REFERENCES "Role"("role_id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Company" ADD CONSTRAINT "Company_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "User"("user_id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Company" ADD CONSTRAINT "Company_category_id_fkey" FOREIGN KEY ("category_id") REFERENCES "Category"("category_id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Company" ADD CONSTRAINT "Company_city_id_fkey" FOREIGN KEY ("city_id") REFERENCES "City"("city_id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Job" ADD CONSTRAINT "Job_category_id_fkey" FOREIGN KEY ("category_id") REFERENCES "Category"("category_id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -160,6 +182,9 @@ ALTER TABLE "Job" ADD CONSTRAINT "Job_company_id_fkey" FOREIGN KEY ("company_id"
 
 -- AddForeignKey
 ALTER TABLE "Candidate" ADD CONSTRAINT "Candidate_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "User"("user_id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Candidate" ADD CONSTRAINT "Candidate_city_id_fkey" FOREIGN KEY ("city_id") REFERENCES "City"("city_id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Resume" ADD CONSTRAINT "Resume_candidate_id_fkey" FOREIGN KEY ("candidate_id") REFERENCES "Candidate"("candidate_id") ON DELETE RESTRICT ON UPDATE CASCADE;

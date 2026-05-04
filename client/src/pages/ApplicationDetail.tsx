@@ -1,75 +1,70 @@
+import { useEffect, useState } from "react";
+import { useLocation, useParams } from "react-router-dom";
+
+type LocationState = {
+  application?: any;
+  job?: { job_id?: number; title?: string; created_at?: string };
+};
+
 const ApplicationDetail = () => {
+  const { jobId, applicationId } = useParams<{
+    jobId: string;
+    applicationId: string;
+  }>();
+  const location = useLocation();
+  const state = (location.state || {}) as LocationState;
+  const [application, setApplication] = useState<any>(
+    state.application || null,
+  );
+
+  useEffect(() => {
+    if (application) return;
+    const fetchApplications = async () => {
+      try {
+        const resp = await fetch(`/api/jobs/${jobId}/applications`);
+        const data = await resp.json();
+        if (!resp.ok) return;
+        // job data available in response but not needed here
+        const found = (data.applications || []).find(
+          (a: any) => String(a.application_id) === String(applicationId),
+        );
+        if (found) setApplication(found);
+      } catch (e) {
+        console.error("Failed to load application", e);
+      }
+    };
+
+    fetchApplications();
+  }, [application, applicationId, jobId]);
+
   return (
-    <body className="bg-background text-on-surface antialiased min-h-screen">
-      {/* TopNavBar from Shared Components  */}
-      <header className="w-full top-0 sticky z-50 bg-[#f7f9fb] dark:bg-slate-900">
-        <div className="flex justify-between items-center px-12 py-6 max-w-360 mx-auto">
-          <div className="flex items-center gap-12">
-            <span className="text-xl font-bold text-slate-900 dark:text-slate-50 tracking-tight">
-              JobNest
-            </span>
-            <nav className="hidden md:flex items-center gap-8 font-manrope text-sm font-medium tracking-tight">
-              <a
-                className="text-secondary dark:text-slate-400 hover:text-primary dark:hover:text-white transition-colors duration-200 ease-in-out"
-                href="#"
-              >
-                Find Jobs
-              </a>
-              <a
-                className="text-secondary dark:text-slate-400 hover:text-primary dark:hover:text-white transition-colors duration-200 ease-in-out"
-                href="#"
-              >
-                Jobs
-              </a>
-              <a
-                className="text-secondary dark:text-slate-400 hover:text-primary dark:hover:text-white transition-colors duration-200 ease-in-out"
-                href="#"
-              >
-                Companies
-              </a>
-              <a
-                className="text-secondary dark:text-slate-400 hover:text-primary dark:hover:text-white transition-colors duration-200 ease-in-out"
-                href="#"
-              >
-                About
-              </a>
-            </nav>
-          </div>
-          <div className="flex items-center gap-6">
-            <button className="material-symbols-outlined text-secondary dark:text-slate-400 hover:text-primary transition-colors">
-              notifications
-            </button>
-            <div className="w-10 h-10 rounded-full bg-surface-container overflow-hidden">
-              <img
-                alt="Recruiter profile avatar"
-                className="w-full h-full object-cover"
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuDUhGtqBm-qkBRJHUg7_qLE0i2gd4LQAUrOMH9MLNodechIePpPtba3IojXG-opQQMXZp5fGX2DrZaKWtzQcullMd0pMd6LRbHuCOIPBarbzmNQRZEkaCpiXTTWeeUPfSKuNhs9Qmrcm-t6HWh3VZCA-81jKjfjP8Tzhsm8whdukNvNxiHJmFKLZy1FKkSa5lm1fNp2Xa73J_Dbxpek_d0-Tlcf6HuxSU2FpIpDOseJQ4HmqS1VMqv3LPwnm9NzmnZwYkPHSTJOTi0"
-              />
-            </div>
-          </div>
-        </div>
-      </header>
+    <div className="bg-background text-on-surface antialiased min-h-screen">
       <main className="pb-20 px-8 max-w-350 mx-auto pt-12">
         {/* Header Section  */}
         <header className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div>
             <div className="flex items-center gap-4 mb-4">
               <span className="bg-secondary-fixed-dim text-on-secondary-fixed px-3 py-1 rounded-full text-[10px] font-bold tracking-widest uppercase">
-                In Review
+                {application?.status ? application.status : "In Review"}
               </span>
               <span className="text-on-surface-variant text-sm flex items-center gap-2">
                 <span className="material-symbols-outlined text-base">
                   calendar_today
                 </span>
-                Applied 4 days ago
+                {application?.created_at
+                  ? `Applied ${new Date(application.created_at).toLocaleDateString()}`
+                  : "Applied: N/A"}
               </span>
             </div>
+            {((application && application.job && application.job.title) ||
+              state.job?.title) && (
+              <p className="text-sm text-secondary font-medium mb-1">
+                Applied for: {application?.job?.title ?? state.job?.title}
+              </p>
+            )}
             <h1 className="text-5xl font-extrabold tracking-tighter text-primary mb-2">
-              Elena Rodriguez
+              {application?.candidate?.full_name ?? "Candidate"}
             </h1>
-            <p className="text-xl text-secondary font-medium">
-              Senior Product Designer &amp; UI Architect
-            </p>
           </div>
         </header>
         {/* Bento Grid Layout  */}
@@ -92,10 +87,11 @@ const ApplicationDetail = () => {
                         Email Address
                       </p>
                       <p className="text-on-surface font-semibold">
-                        elena.rodriguez@design.io
+                        {application?.candidate?.email ?? "-"}
                       </p>
                     </div>
                   </div>
+
                   <div className="flex items-center gap-4">
                     <span className="material-symbols-outlined text-secondary">
                       call
@@ -105,10 +101,11 @@ const ApplicationDetail = () => {
                         Phone Number
                       </p>
                       <p className="text-on-surface font-semibold">
-                        +1 (555) 234-8901
+                        {application?.candidate?.phone ?? "-"}
                       </p>
                     </div>
                   </div>
+
                   <div className="flex items-center gap-4">
                     <span className="material-symbols-outlined text-secondary">
                       location_on
@@ -118,7 +115,7 @@ const ApplicationDetail = () => {
                         Location
                       </p>
                       <p className="text-on-surface font-semibold">
-                        Brooklyn, NY (Open to Remote)
+                        {application?.candidate?.location ?? "-"}
                       </p>
                     </div>
                   </div>
@@ -130,12 +127,9 @@ const ApplicationDetail = () => {
                   Introduction
                 </h4>
                 <p className="text-on-surface leading-relaxed text-sm">
-                  I am a detail-oriented Product Designer with 8+ years of
-                  experience bridging the gap between design and engineering. My
-                  focus is on creating scalable design languages that empower
-                  product teams to build faster and more consistently. I thrive
-                  in environments that value high-end aesthetics paired with
-                  rigorous user research and technical feasibility.
+                  {application?.cover_letter
+                    ? application.cover_letter
+                    : "No cover letter provided."}
                 </p>
               </section>
             </div>
@@ -188,10 +182,10 @@ const ApplicationDetail = () => {
                   </div>
                   <div>
                     <p className="text-sm font-bold text-on-surface">
-                      Elena_Rodriguez_CV.pdf
+                      {application?.resume?.name ?? "Resume"}
                     </p>
                     <p className="text-xs text-on-surface-variant">
-                      PDF Document • 1.2 MB
+                      {application?.resume?.file_url ? "Uploaded CV" : "No CV"}
                     </p>
                   </div>
                 </div>
@@ -219,18 +213,15 @@ const ApplicationDetail = () => {
                   </h3>
                   <div className="w-16 h-16 rounded-full border-2 border-primary-fixed flex items-center justify-center shrink-0">
                     <span className="text-xl font-extrabold">
-                      94
+                      {application?.ai_evaluation?.score ?? "-"}
                       <span className="text-xs">%</span>
                     </span>
                   </div>
                 </div>
                 <p className="text-on-primary-container leading-relaxed text-sm">
-                  Elena exhibits exceptional alignment with the 'Senior UI
-                  Architect' role. Her portfolio demonstrates advanced
-                  system-level thinking and high-fidelity React prototyping.
-                  Strong emphasis on accessibility (A11y) and collaborative
-                  design systems is a key differentiator compared to other
-                  candidates in the pool.
+                  {application?.ai_evaluation?.summary
+                    ? application.ai_evaluation.summary
+                    : "No AI summary available for this application."}
                 </p>
               </div>
               <div className="relative space-y-6 pt-6 border-t border-white/10">
@@ -239,21 +230,18 @@ const ApplicationDetail = () => {
                     Matching Skills
                   </h4>
                   <div className="flex flex-wrap gap-2">
-                    <span className="bg-primary-fixed/20 text-primary-fixed px-3 py-1 rounded-lg text-[10px] font-semibold border border-primary-fixed/20">
-                      UI/UX Design
-                    </span>
-                    <span className="bg-primary-fixed/20 text-primary-fixed px-3 py-1 rounded-lg text-[10px] font-semibold border border-primary-fixed/20">
-                      Figma
-                    </span>
-                    <span className="bg-primary-fixed/20 text-primary-fixed px-3 py-1 rounded-lg text-[10px] font-semibold border border-primary-fixed/20">
-                      React
-                    </span>
-                    <span className="bg-primary-fixed/20 text-primary-fixed px-3 py-1 rounded-lg text-[10px] font-semibold border border-primary-fixed/20">
-                      Design Systems
-                    </span>
-                    <span className="bg-primary-fixed/20 text-primary-fixed px-3 py-1 rounded-lg text-[10px] font-semibold border border-primary-fixed/20">
-                      A11y
-                    </span>
+                    {(application?.ai_evaluation?.matching_skills || "")
+                      .split(",")
+                      .map((s: string) => s.trim())
+                      .filter(Boolean)
+                      .map((skill: string) => (
+                        <span
+                          key={skill}
+                          className="bg-primary-fixed/20 text-primary-fixed px-3 py-1 rounded-lg text-[10px] font-semibold border border-primary-fixed/20"
+                        >
+                          {skill}
+                        </span>
+                      ))}
                   </div>
                 </div>
                 <div>
@@ -261,15 +249,18 @@ const ApplicationDetail = () => {
                     Missing Skills
                   </h4>
                   <div className="flex flex-wrap gap-2">
-                    <span className="bg-error/20 text-error-container px-3 py-1 rounded-lg text-[10px] font-semibold border border-error/20 opacity-80">
-                      Python
-                    </span>
-                    <span className="bg-error/20 text-error-container px-3 py-1 rounded-lg text-[10px] font-semibold border border-error/20 opacity-80">
-                      AWS
-                    </span>
-                    <span className="bg-error/20 text-error-container px-3 py-1 rounded-lg text-[10px] font-semibold border border-error/20 opacity-80">
-                      SQL
-                    </span>
+                    {(application?.ai_evaluation?.missing_skills || "")
+                      .split(",")
+                      .map((s: string) => s.trim())
+                      .filter(Boolean)
+                      .map((skill: string) => (
+                        <span
+                          key={skill}
+                          className="bg-error/20 text-error-container px-3 py-1 rounded-lg text-[10px] font-semibold border border-error/20 opacity-80"
+                        >
+                          {skill}
+                        </span>
+                      ))}
                   </div>
                 </div>
               </div>
@@ -277,41 +268,7 @@ const ApplicationDetail = () => {
           </div>
         </div>
       </main>
-      {/* Footer from Shared Components  */}
-      <footer className="w-full py-12 px-8 bg-slate-50 dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800">
-        <div className="flex flex-col md:flex-row justify-between items-center gap-6 max-w-350 mx-auto">
-          <p className="text-xs font-manrope uppercase tracking-widest text-slate-600 dark:text-slate-400">
-            © 2024 The Digital Curator. All rights reserved.
-          </p>
-          <div className="flex gap-8">
-            <a
-              className="text-xs font-manrope uppercase tracking-widest text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 transition-colors"
-              href="#"
-            >
-              Privacy Policy
-            </a>
-            <a
-              className="text-xs font-manrope uppercase tracking-widest text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 transition-colors"
-              href="#"
-            >
-              Terms of Service
-            </a>
-            <a
-              className="text-xs font-manrope uppercase tracking-widest text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 transition-colors"
-              href="#"
-            >
-              Help Center
-            </a>
-            <a
-              className="text-xs font-manrope uppercase tracking-widest text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 transition-colors"
-              href="#"
-            >
-              Support
-            </a>
-          </div>
-        </div>
-      </footer>
-    </body>
+    </div>
   );
 };
 

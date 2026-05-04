@@ -482,6 +482,11 @@ export const applyToJob = async (req: Request, res: Response) => {
         job_id: jobId,
         resume_id: resumeIdToUse,
         status: "pending",
+        cover_letter:
+          typeof req.body.introduction === "string" &&
+          req.body.introduction.trim()
+            ? req.body.introduction.trim()
+            : null,
       },
       select: {
         application_id: true,
@@ -657,6 +662,7 @@ export const getJobApplications = async (req: Request, res: Response) => {
           candidate_id: application.candidate.candidate_id,
           full_name: application.candidate.full_name,
           email: application.candidate.user?.email || "",
+          phone: application.candidate.phone || "",
           location: application.candidate.city?.name || "N/A",
           avatar_url: await formatAvatarUrl(
             application.candidate.avatar_url,

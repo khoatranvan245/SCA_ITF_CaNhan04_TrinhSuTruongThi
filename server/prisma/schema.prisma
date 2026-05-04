@@ -122,6 +122,7 @@ model Application {
   candidate_id   Int
   job_id         Int
   resume_id      Int
+  cover_letter   String?
   status         ApplicationStatus @default(pending)
   created_at     DateTime          @default(now())
   updated_at     DateTime          @updatedAt

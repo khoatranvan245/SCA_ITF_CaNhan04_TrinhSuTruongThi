@@ -161,6 +161,7 @@ export const ApplicationScalarFieldEnum = {
     candidate_id: 'candidate_id',
     job_id: 'job_id',
     resume_id: 'resume_id',
+    cover_letter: 'cover_letter',
     status: 'status',
     created_at: 'created_at',
     updated_at: 'updated_at'
