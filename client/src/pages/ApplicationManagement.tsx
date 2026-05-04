@@ -133,6 +133,10 @@ const ApplicationManagement = () => {
 
   const userId = parsedUser?.user_id;
   const isRecruiter = parsedUser?.role?.title?.toLowerCase() === "recruiter";
+  const isJobView = Boolean(jobId);
+  const showJobCol = !isJobView;
+  const showAiCol = isJobView;
+  const emptyColSpan = 4 + (showJobCol ? 1 : 0) + (showAiCol ? 1 : 0);
 
   useEffect(() => {
     if (!userId || !isRecruiter) {
@@ -221,8 +225,8 @@ const ApplicationManagement = () => {
             </span>
             Back to Jobs
           </button>
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
-            <div className="w-full">
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-6 lg:gap-10">
+            <div className="w-full lg:max-w-3xl">
               <h1 className="text-4xl font-extrabold text-primary tracking-tight mb-2">
                 {job?.title || company?.name || "Application Management"}
               </h1>
@@ -249,6 +253,20 @@ const ApplicationManagement = () => {
                 </div>
               </div>
             </div>
+            <section className="w-full lg:w-auto lg:min-w-[24rem] lg:pt-16">
+              <div className="relative w-full group">
+                <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline group-focus-within:text-primary transition-colors">
+                  search
+                </span>
+                <input
+                  className="w-full pl-12 pr-4 py-3 bg-surface-container-highest border-none rounded-xl focus:ring-2 focus:ring-primary-fixed focus:bg-surface-container-lowest transition-all placeholder:text-outline/70"
+                  placeholder="Search candidates by name or email..."
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+            </section>
           </div>
         </header>
 
@@ -257,21 +275,6 @@ const ApplicationManagement = () => {
             {error}
           </div>
         )}
-
-        <section className="mb-8 flex flex-col md:flex-row gap-4 items-center">
-          <div className="relative w-full md:w-96 group">
-            <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline group-focus-within:text-primary transition-colors">
-              search
-            </span>
-            <input
-              className="w-full pl-12 pr-4 py-3 bg-surface-container-highest border-none rounded-xl focus:ring-2 focus:ring-primary-fixed focus:bg-surface-container-lowest transition-all placeholder:text-outline/70"
-              placeholder="Search candidates by name or email..."
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-        </section>
 
         <div className="bg-surface-container-lowest rounded-xl overflow-hidden">
           <table className="w-full text-left border-collapse">
@@ -283,27 +286,30 @@ const ApplicationManagement = () => {
                 <th className="w-[16%] px-6 py-5 font-bold text-[0.7rem] uppercase tracking-wider whitespace-nowrap">
                   Applied Date
                 </th>
-                <th className="px-6 py-5 font-bold text-[0.7rem] uppercase tracking-wider">
-                  Job
-                </th>
+                {showJobCol && (
+                  <th className="px-6 py-5 font-bold text-[0.7rem] uppercase tracking-wider">
+                    Job
+                  </th>
+                )}
                 <th className="px-6 py-5 font-bold text-[0.7rem] uppercase tracking-wider">
                   Status
                 </th>
-                <th className="px-6 py-5 font-bold text-[0.7rem] uppercase tracking-wider whitespace-nowrap">
-                  AI Score
-                </th>
+                {showAiCol && (
+                  <th className="px-6 py-5 font-bold text-[0.7rem] uppercase tracking-wider whitespace-nowrap">
+                    AI Score
+                  </th>
+                )}
                 <th className="px-6 py-5 font-bold text-[0.7rem] uppercase tracking-wider">
                   Email Address
                 </th>
 
-                <th className="px-8 py-5 font-bold text-[0.7rem] uppercase tracking-wider text-right"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-surface-container-low">
               {paginatedApplications.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={7}
+                    colSpan={emptyColSpan}
                     className="px-8 py-8 text-center text-secondary text-sm"
                   >
                     {applications.length === 0
@@ -333,9 +339,23 @@ const ApplicationManagement = () => {
                           </div>
                         )}
                         <div>
-                          <p className="font-bold text-primary group-hover:text-primary-container transition-colors">
+                          <button
+                            type="button"
+                            className="text-left font-bold text-primary hover:text-primary-container transition-colors cursor-pointer"
+                            onClick={() =>
+                              navigate(
+                                `/application-management/${application.job?.job_id || job?.job_id}/${application.application_id}`,
+                                {
+                                  state: {
+                                    application,
+                                    job: application.job || job,
+                                  },
+                                },
+                              )
+                            }
+                          >
                             {application.candidate.full_name}
-                          </p>
+                          </button>
                           <p className="text-sm text-secondary">
                             {application.candidate.location}
                           </p>
@@ -345,9 +365,11 @@ const ApplicationManagement = () => {
                     <td className="px-6 py-6 text-sm text-secondary">
                       {formatDate(application.created_at)}
                     </td>
-                    <td className="px-6 py-6 text-sm text-secondary font-medium">
-                      {application.job?.title || job?.title || "Job"}
-                    </td>
+                    {showJobCol && (
+                      <td className="px-6 py-6 text-sm text-secondary font-medium">
+                        {application.job?.title || job?.title || "Job"}
+                      </td>
+                    )}
                     <td className="px-6 py-6">
                       <span
                         className={`${
@@ -364,44 +386,27 @@ const ApplicationManagement = () => {
                         {statusLabels[application.status] || application.status}
                       </span>
                     </td>
-                    <td className="px-6 py-6">
-                      {application.ai_evaluation?.score === null ||
-                      application.ai_evaluation?.score === undefined ? (
-                        <span className="text-sm text-secondary">
-                          Evaluating...
-                        </span>
-                      ) : (
-                        <span
-                          className={`${getScoreBadgeClass(
-                            application.ai_evaluation.score,
-                          )} inline-flex items-center rounded-full px-3 py-1 text-xs font-bold`}
-                          title={application.ai_evaluation.summary}
-                        >
-                          {application.ai_evaluation.score}%
-                        </span>
-                      )}
-                    </td>
+                    {showAiCol && (
+                      <td className="px-6 py-6">
+                        {application.ai_evaluation?.score === null ||
+                        application.ai_evaluation?.score === undefined ? (
+                          <span className="text-sm text-secondary">
+                            Evaluating...
+                          </span>
+                        ) : (
+                          <span
+                            className={`${getScoreBadgeClass(
+                              application.ai_evaluation.score,
+                            )} inline-flex items-center rounded-full px-3 py-1 text-xs font-bold`}
+                            title={application.ai_evaluation.summary}
+                          >
+                            {application.ai_evaluation.score}%
+                          </span>
+                        )}
+                      </td>
+                    )}
                     <td className="px-6 py-6 text-sm text-secondary font-medium">
                       {application.candidate.email}
-                    </td>
-
-                    <td className="px-8 py-6 text-right">
-                      <div className="flex justify-end gap-3 text-secondary">
-                        <button
-                          className="p-2 hover:bg-surface-container-high rounded-lg transition-colors text-secondary"
-                          title="View Details"
-                          onClick={() =>
-                            navigate(
-                              `/application-management/${application.job?.job_id || job?.job_id}/${application.application_id}`,
-                              { state: { application, job: application.job || job } },
-                            )
-                          }
-                        >
-                          <span className="material-symbols-outlined">
-                            chevron_right
-                          </span>
-                        </button>
-                      </div>
                     </td>
                   </tr>
                 ))
