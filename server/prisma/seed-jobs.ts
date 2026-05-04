@@ -61,7 +61,7 @@ function buildJobData(index: number) {
     salary_min: salaryMinMillions * 1_000_000,
     salary_max: salaryMaxMillions * 1_000_000,
     benefits: randomPick(benefitTemplates),
-    category_id: randomInt(1, 9),
+    job_category_id: randomInt(1, 9),
     company_id: 2,
     expiration_date: new Date(
       Date.now() + randomInt(15, 90) * 24 * 60 * 60 * 1000,
@@ -70,7 +70,23 @@ function buildJobData(index: number) {
 }
 
 async function seedJobs() {
+  const jobCategories = await prisma.jobCategory.findMany({
+    select: { job_category_id: true },
+  });
+
+  if (jobCategories.length === 0) {
+    throw new Error(
+      "No job categories found. Seed job categories before seeding jobs.",
+    );
+  }
+
   const jobData = Array.from({ length: 30 }, (_, index) => buildJobData(index));
+
+  for (const item of jobData) {
+    item.job_category_id =
+      jobCategories[Math.floor(Math.random() * jobCategories.length)]!
+        .job_category_id;
+  }
 
   await prisma.job.createMany({
     data: jobData,

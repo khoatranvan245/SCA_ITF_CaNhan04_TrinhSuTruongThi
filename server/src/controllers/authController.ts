@@ -4,6 +4,8 @@ import crypto from "crypto";
 
 const ROLE_CANDIDATE = 1;
 const ROLE_RECRUITER = 2;
+const ROLE_CANDIDATE_TITLE = "candidate";
+const ROLE_RECRUITER_TITLE = "recruiter";
 
 // Hash password function
 function hashPassword(password: string): string {
@@ -29,6 +31,40 @@ function validateBasicFields(
   }
 
   return null;
+}
+
+async function ensureRoleIdByTitle(
+  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
+  roleTitle: string,
+): Promise<number> {
+  const normalizedTitle = roleTitle.trim().toLowerCase();
+
+  const existingRole = await tx.role.findFirst({
+    where: {
+      title: {
+        equals: normalizedTitle,
+        mode: "insensitive",
+      },
+    },
+    select: { role_id: true },
+  });
+
+  if (existingRole) {
+    return existingRole.role_id;
+  }
+
+  const createdRole = await tx.role.create({
+    data: {
+      title: normalizedTitle,
+      description:
+        normalizedTitle === ROLE_CANDIDATE_TITLE
+          ? "Candidate account"
+          : "Recruiter account",
+    },
+    select: { role_id: true },
+  });
+
+  return createdRole.role_id;
 }
 
 // Candidate Sign up controller
@@ -85,11 +121,16 @@ export const candidateSignup = async (req: Request, res: Response) => {
 
     // Create user and candidate profile in one transaction.
     const result = await prisma.$transaction(async (tx) => {
+      const candidateRoleId = await ensureRoleIdByTitle(
+        tx,
+        ROLE_CANDIDATE_TITLE,
+      );
+
       const createdUser = await tx.user.create({
         data: {
           email,
           password_hash: passwordHash,
-          role_id: 1, // Candidate
+          role_id: candidateRoleId,
         },
         include: {
           role: true,
@@ -134,7 +175,7 @@ export const recruiterSignup = async (req: Request, res: Response) => {
     // Ensure connection is established
     await prisma.$connect();
 
-    const { email, password, confirmPassword, companyName, companyLocation } =
+    const { email, password, confirmPassword, companyName, cityId } =
       req.body;
 
     // Validate basic fields
@@ -149,10 +190,17 @@ export const recruiterSignup = async (req: Request, res: Response) => {
     }
 
     // Validate recruiter specific fields
-    if (!companyName || !companyLocation) {
+    if (!companyName || !cityId) {
       res.status(400).json({
         message: "Company name and location are required for recruiter signup",
       });
+      return;
+    }
+
+    // Validate cityId is a number
+    const parsedCityId = Number(cityId);
+    if (!Number.isInteger(parsedCityId) || parsedCityId <= 0) {
+      res.status(400).json({ message: "Invalid location selected" });
       return;
     }
 
@@ -166,16 +214,31 @@ export const recruiterSignup = async (req: Request, res: Response) => {
       return;
     }
 
+    // Verify city exists
+    const city = await prisma.city.findUnique({
+      where: { city_id: parsedCityId },
+    });
+
+    if (!city) {
+      res.status(400).json({ message: "Selected location does not exist" });
+      return;
+    }
+
     // Hash password
     const passwordHash = hashPassword(password);
 
     // Create user and company in transaction
     const result = await prisma.$transaction(async (tx) => {
+      const recruiterRoleId = await ensureRoleIdByTitle(
+        tx,
+        ROLE_RECRUITER_TITLE,
+      );
+
       const createdUser = await tx.user.create({
         data: {
           email,
           password_hash: passwordHash,
-          role_id: 2, // Recruiter
+          role_id: recruiterRoleId,
         },
         include: {
           role: true,
@@ -185,7 +248,7 @@ export const recruiterSignup = async (req: Request, res: Response) => {
       const createdCompany = await tx.company.create({
         data: {
           name: String(companyName).trim(),
-          location: String(companyLocation).trim(),
+          city_id: parsedCityId,
           user_id: createdUser.user_id,
         },
       });
@@ -252,7 +315,7 @@ const loginByRole = async (
       return;
     }
 
-    if (user.role_id !== expectedRoleId) {
+    if (user.role?.title?.toLowerCase() !== roleLabel.toLowerCase()) {
       res.status(403).json({
         message: "Invalid email or password",
       });
@@ -260,7 +323,7 @@ const loginByRole = async (
     }
 
     let candidate = null;
-    if (user.role_id === ROLE_CANDIDATE) {
+    if (user.role?.title?.toLowerCase() === ROLE_CANDIDATE_TITLE) {
       candidate = await prisma.candidate.findFirst({
         where: { user_id: user.user_id },
       });
@@ -268,7 +331,7 @@ const loginByRole = async (
 
     // If recruiter, also fetch their company
     let company = null;
-    if (user.role_id === ROLE_RECRUITER) {
+    if (user.role?.title?.toLowerCase() === ROLE_RECRUITER_TITLE) {
       company = await prisma.company.findFirst({
         where: { user_id: user.user_id },
       });

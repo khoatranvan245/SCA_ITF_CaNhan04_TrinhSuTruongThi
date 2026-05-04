@@ -37,32 +37,41 @@ model User {
 }
 
 model Company {
-  company_id  Int      @id @default(autoincrement())
-  name        String
-  description String?
-  website     String?
-  avatar_url  String?
-  category_id Int?
-  user_id     Int
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
-  city_id     Int?
-  address     String?
+  company_id          Int      @id @default(autoincrement())
+  name                String
+  description         String?
+  website             String?
+  avatar_url          String?
+  company_category_id Int?
+  user_id             Int
+  created_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
+  city_id             Int?
+  address             String?
 
-  user     User      @relation(fields: [user_id], references: [user_id])
-  category Category? @relation(fields: [category_id], references: [category_id])
-  city     City?     @relation(fields: [city_id], references: [city_id])
-  jobs     Job[]
+  user            User             @relation(fields: [user_id], references: [user_id])
+  companyCategory CompanyCategory?  @relation(fields: [company_category_id], references: [company_category_id])
+  city            City?            @relation(fields: [city_id], references: [city_id])
+  jobs            Job[]
 }
 
-model Category {
-  category_id Int      @id @default(autoincrement())
-  title       String
-  description String?
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
+model JobCategory {
+  job_category_id Int      @id @default(autoincrement())
+  title           String
+  description     String?
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
 
-  jobs      Job[]
+  jobs Job[]
+}
+
+model CompanyCategory {
+  company_category_id Int      @id @default(autoincrement())
+  title               String
+  description         String?
+  created_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
+
   companies Company[]
 }
 
@@ -77,13 +86,13 @@ model Job {
   benefits         String?
   status           JobStatus @default(open)
   expiration_date  DateTime?
-  category_id      Int
+  job_category_id  Int
   company_id       Int
   created_at       DateTime  @default(now())
   updated_at       DateTime  @updatedAt
 
-  category Category @relation(fields: [category_id], references: [category_id])
-  company  Company  @relation(fields: [company_id], references: [company_id])
+  jobCategory JobCategory @relation(fields: [job_category_id], references: [job_category_id])
+  company     Company     @relation(fields: [company_id], references: [company_id])
 
   applications Application[]
   job_skills   JobSkill[]

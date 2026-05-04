@@ -221,12 +221,13 @@ export const getPublicJobs = async (_req: Request, res: Response) => {
 
     const jobs = await prisma.job.findMany({
       include: {
+        jobCategory: true,
         company: {
           include: {
+            companyCategory: true,
             city: true,
           },
         },
-        category: true,
         job_skills: {
           include: {
             skill: true,
@@ -248,7 +249,7 @@ export const getPublicJobs = async (_req: Request, res: Response) => {
           job.company.updated_at,
         ),
         experience_years: job.experience_years,
-        category: job.category?.title ?? "General",
+        category: job.jobCategory?.title ?? "General",
         location: job.company.city?.name || job.company.address || "Remote",
         created_at: job.created_at,
         salary_label: formatSalaryLabel(job.salary_min, job.salary_max),
@@ -259,6 +260,29 @@ export const getPublicJobs = async (_req: Request, res: Response) => {
     res.status(200).json({ jobs: jobsWithLogos });
   } catch (error) {
     console.error("Get public jobs error:", error);
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
+    res
+      .status(500)
+      .json({ message: "Internal server error", error: errorMessage });
+  }
+};
+
+export const getCategories = async (_req: Request, res: Response) => {
+  try {
+    await prisma.$connect();
+
+    const categories = await prisma.jobCategory.findMany({
+      orderBy: { title: "asc" },
+      select: {
+        job_category_id: true,
+        title: true,
+      },
+    });
+
+    res.status(200).json({ categories });
+  } catch (error) {
+    console.error("Get job categories error:", error);
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error";
     res
@@ -280,13 +304,13 @@ export const getPublicJobById = async (req: Request, res: Response) => {
     const job = await prisma.job.findUnique({
       where: { job_id: jobId },
       include: {
+        jobCategory: true,
         company: {
           include: {
-            category: true,
+            companyCategory: true,
             city: true,
           },
         },
-        category: true,
         job_skills: {
           include: {
             skill: true,
@@ -310,12 +334,12 @@ export const getPublicJobById = async (req: Request, res: Response) => {
           job.company.avatar_url,
           job.company.updated_at,
         ),
-        company_category: job.company.category?.title ?? "General",
+        company_category: job.company.companyCategory?.title ?? "General",
         company_address:
           [job.company.address, job.company.city?.name]
             .filter((value): value is string => Boolean(value && value.trim()))
             .join(", ") || "Address not available",
-        category: job.category?.title ?? "General",
+        category: job.jobCategory?.title ?? "General",
         location: job.company.city?.name || job.company.address || "Remote",
         created_at: job.created_at,
         expiration_date: job.expiration_date,
@@ -729,7 +753,7 @@ export const getRecruiterJobs = async (req: Request, res: Response) => {
     const jobs = await prisma.job.findMany({
       where: { company_id: company.company_id },
       include: {
-        category: true,
+        jobCategory: true,
         _count: {
           select: { applications: true },
         },
@@ -742,7 +766,7 @@ export const getRecruiterJobs = async (req: Request, res: Response) => {
       title: job.title,
       status: job.status,
       created_at: job.created_at,
-      category: job.category?.title ?? "General",
+      category: job.jobCategory?.title ?? "General",
       applicants_count: job._count.applications,
       location: company.city?.name || company.address || "No location",
     }));
@@ -846,8 +870,8 @@ export const createRecruiterJob = async (req: Request, res: Response) => {
       return;
     }
 
-    const category = await prisma.category.findUnique({
-      where: { category_id: categoryId },
+    const category = await prisma.jobCategory.findUnique({
+      where: { job_category_id: categoryId },
     });
 
     if (!category) {
@@ -902,12 +926,12 @@ export const createRecruiterJob = async (req: Request, res: Response) => {
           salary_max: salaryMax,
           benefits,
           expiration_date: expirationDate,
-          category_id: categoryId,
+          job_category_id: categoryId,
           company_id: company.company_id,
           status: "open",
         },
         include: {
-          category: true,
+          jobCategory: true,
           company: true,
           job_skills: {
             include: {
@@ -955,7 +979,7 @@ export const createRecruiterJob = async (req: Request, res: Response) => {
         return transaction.job.findUnique({
           where: { job_id: createdJob.job_id },
           include: {
-            category: true,
+            jobCategory: true,
             company: true,
             job_skills: {
               include: {
@@ -1086,7 +1110,7 @@ export const getRecruiterJobById = async (req: Request, res: Response) => {
         salary_max: job.salary_max,
         benefits: job.benefits,
         expiration_date: job.expiration_date,
-        category_id: job.category_id,
+        category_id: job.job_category_id,
         skills: job.job_skills.map((item) => item.skill.name),
       },
     });
@@ -1203,8 +1227,8 @@ export const updateRecruiterJob = async (req: Request, res: Response) => {
       return;
     }
 
-    const category = await prisma.category.findUnique({
-      where: { category_id: categoryId },
+    const category = await prisma.jobCategory.findUnique({
+      where: { job_category_id: categoryId },
     });
 
     if (!category) {
@@ -1260,7 +1284,7 @@ export const updateRecruiterJob = async (req: Request, res: Response) => {
           salary_max: salaryMax,
           benefits,
           expiration_date: expirationDate,
-          category_id: categoryId,
+          job_category_id: categoryId,
         },
       });
 

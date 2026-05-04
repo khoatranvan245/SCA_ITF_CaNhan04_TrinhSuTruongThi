@@ -1,5 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+
+interface City {
+  city_id: number;
+  name: string;
+}
 
 const RecruiterSignUp = () => {
   const navigate = useNavigate();
@@ -7,10 +12,31 @@ const RecruiterSignUp = () => {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [companyName, setCompanyName] = useState("");
-  const [companyLocation, setCompanyLocation] = useState("");
+  const [cityId, setCityId] = useState("");
+  const [cities, setCities] = useState<City[]>([]);
+  const [citiesLoading, setCitiesLoading] = useState(true);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+
+  useEffect(() => {
+    const fetchCities = async () => {
+      try {
+        const response = await fetch(
+          "http://localhost:3000/api/company-profile/cities",
+        );
+        const data = await response.json();
+        if (response.ok && data.cities) {
+          setCities(data.cities);
+        }
+      } catch (err) {
+        console.error("Error fetching cities:", err);
+      } finally {
+        setCitiesLoading(false);
+      }
+    };
+    fetchCities();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -30,7 +56,7 @@ const RecruiterSignUp = () => {
             password,
             confirmPassword,
             companyName,
-            companyLocation,
+            cityId: parseInt(cityId),
           }),
         },
       );
@@ -47,7 +73,7 @@ const RecruiterSignUp = () => {
       setPassword("");
       setConfirmPassword("");
       setCompanyName("");
-      setCompanyLocation("");
+      setCityId("");
       setTimeout(() => {
         // Redirect to login or recruiter dashboard
         navigate("/recruiter-login");
@@ -157,17 +183,19 @@ const RecruiterSignUp = () => {
                   </label>
                   <select
                     className="w-full bg-surface-container-highest border-none rounded-xl px-4 py-3 focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary-fixed transition-all outline-none appearance-none cursor-pointer"
-                    value={companyLocation}
-                    onChange={(e) => setCompanyLocation(e.target.value)}
+                    value={cityId}
+                    onChange={(e) => setCityId(e.target.value)}
                     required
+                    disabled={citiesLoading}
                   >
                     <option value="" disabled>
-                      Select a location
+                      {citiesLoading ? "Loading locations..." : "Select a location"}
                     </option>
-                    <option value="new-york">New York, NY</option>
-                    <option value="san-francisco">San Francisco, CA</option>
-                    <option value="london">London, UK</option>
-                    <option value="remote">Remote</option>
+                    {cities.map((city) => (
+                      <option key={city.city_id} value={city.city_id}>
+                        {city.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>

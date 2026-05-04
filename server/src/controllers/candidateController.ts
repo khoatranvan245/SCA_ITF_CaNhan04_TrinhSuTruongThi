@@ -233,7 +233,7 @@ export const getCandidateApplications = async (req: Request, res: Response) => {
       include: {
         job: {
           include: {
-            category: true,
+            jobCategory: true,
             company: {
               include: {
                 city: true,
@@ -254,7 +254,7 @@ export const getCandidateApplications = async (req: Request, res: Response) => {
         job: {
           job_id: application.job.job_id,
           title: application.job.title,
-          category: application.job.category?.title ?? "General",
+          category: application.job.jobCategory?.title ?? "General",
           company_name: application.job.company.name,
           company_avatar_url: await formatAvatarUrl(
             application.job.company.avatar_url,

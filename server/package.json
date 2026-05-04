@@ -11,6 +11,8 @@
     "build": "tsc",
     "start": "node dist/src/app.js",
     "seed:cities": "tsx prisma/seed-cities.ts",
+    "seed:company-categories": "tsx prisma/seed-company-categories.ts",
+    "seed:job-categories": "tsx prisma/seed-job-categories.ts",
     "seed:skills": "tsx prisma/seed-skills.ts",
     "seed:jobs": "tsx prisma/seed-jobs.ts"
   },

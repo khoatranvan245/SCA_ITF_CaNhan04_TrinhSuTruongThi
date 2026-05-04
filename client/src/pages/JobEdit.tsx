@@ -12,7 +12,7 @@ type StoredUser = {
 };
 
 type Category = {
-  category_id: number;
+  job_category_id: number;
   title: string;
 };
 
@@ -171,7 +171,7 @@ const JobEdit = () => {
       setIsLoadingCategories(true);
       try {
         const response = await fetch(
-          "http://localhost:3000/api/company-profile/categories",
+          "http://localhost:3000/api/jobs/categories",
         );
         const data = await response.json();
 
@@ -535,8 +535,8 @@ const JobEdit = () => {
                     </option>
                     {categories.map((category) => (
                       <option
-                        key={category.category_id}
-                        value={category.category_id}
+                        key={category.job_category_id}
+                        value={category.job_category_id}
                       >
                         {category.title}
                       </option>

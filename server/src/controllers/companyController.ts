@@ -205,10 +205,10 @@ export const getCategories = async (_req: Request, res: Response) => {
   try {
     await prisma.$connect();
 
-    const categories = await prisma.category.findMany({
+    const categories = await prisma.companyCategory.findMany({
       orderBy: { title: "asc" },
       select: {
-        category_id: true,
+        company_category_id: true,
         title: true,
       },
     });
@@ -230,7 +230,7 @@ export const getPublicCompanies = async (_req: Request, res: Response) => {
 
     const companies = await prisma.company.findMany({
       include: {
-        category: true,
+        companyCategory: true,
         city: true,
         _count: {
           select: { jobs: true },
@@ -250,7 +250,7 @@ export const getPublicCompanies = async (_req: Request, res: Response) => {
           company.avatar_url,
           company.updated_at,
         ),
-        category: company.category?.title ?? "General",
+        category: company.companyCategory?.title ?? "General",
         location: company.city?.name || company.address || "Remote",
         open_roles_count: company._count.jobs,
         since_year: company.created_at.getFullYear(),
@@ -283,7 +283,7 @@ export const getPublicCompanyById = async (req: Request, res: Response) => {
     const company = await prisma.company.findUnique({
       where: { company_id: companyId },
       include: {
-        category: true,
+        companyCategory: true,
         city: true,
         jobs: {
           where: { status: "open" },
@@ -317,7 +317,7 @@ export const getPublicCompanyById = async (req: Request, res: Response) => {
         description: company.description,
         website: company.website,
         avatar_url: displayAvatarUrl,
-        category: company.category?.title ?? "General",
+        category: company.companyCategory?.title ?? "General",
         location: company.city?.name || company.address || "Remote",
         open_roles_count: company.jobs.length,
         since_year: company.created_at.getFullYear(),
@@ -386,7 +386,7 @@ export const getCompanyProfile = async (req: Request, res: Response) => {
 
     const company = await prisma.company.findFirst({
       where: { user_id: userId },
-      include: { category: true, city: true },
+      include: { companyCategory: true, city: true },
     });
 
     if (!company) {
@@ -402,6 +402,7 @@ export const getCompanyProfile = async (req: Request, res: Response) => {
     res.status(200).json({
       company: {
         ...company,
+        category_id: company.company_category_id,
         avatar_url: displayAvatarUrl,
       },
     });
@@ -474,8 +475,8 @@ export const updateCompanyProfile = async (req: Request, res: Response) => {
         return;
       }
 
-      const existingCategory = await prisma.category.findUnique({
-        where: { category_id: parsedCategoryId },
+      const existingCategory = await prisma.companyCategory.findUnique({
+        where: { company_category_id: parsedCategoryId },
       });
 
       if (!existingCategory) {
@@ -531,11 +532,11 @@ export const updateCompanyProfile = async (req: Request, res: Response) => {
           : {}),
         ...(avatarFile ? { avatar_url: avatarUrl } : {}),
         ...(category_id !== undefined
-          ? { category_id: parseCategoryId(category_id) }
+          ? { company_category_id: parseCategoryId(category_id) }
           : {}),
         ...(city_id !== undefined ? { city_id: parseCityId(city_id) } : {}),
       },
-      include: { category: true, city: true },
+      include: { companyCategory: true, city: true },
     });
 
     const displayAvatarUrl = await formatAvatarUrl(
@@ -547,6 +548,7 @@ export const updateCompanyProfile = async (req: Request, res: Response) => {
       message: "Company profile updated successfully",
       company: {
         ...updatedCompany,
+        category_id: updatedCompany.company_category_id,
         avatar_url: displayAvatarUrl,
       },
     });

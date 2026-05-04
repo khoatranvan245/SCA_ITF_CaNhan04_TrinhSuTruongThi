@@ -23,7 +23,7 @@ type CompanyProfileData = {
 };
 
 type CategoryOption = {
-  category_id: number;
+  company_category_id: number;
   title: string;
 };
 
@@ -622,8 +622,8 @@ const CompanyProfile = () => {
                   <option value="">Select industry</option>
                   {categories.map((category) => (
                     <option
-                      key={category.category_id}
-                      value={category.category_id}
+                      key={category.company_category_id}
+                      value={category.company_category_id}
                     >
                       {category.title}
                     </option>

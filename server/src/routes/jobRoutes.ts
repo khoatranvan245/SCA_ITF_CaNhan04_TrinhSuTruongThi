@@ -5,6 +5,7 @@ import { getCandidateApplyStatus } from "../controllers/jobController";
 import { getJobApplications } from "../controllers/jobController";
 import { getPublicJobs } from "../controllers/jobController";
 import { getPublicJobById } from "../controllers/jobController";
+import { getCategories } from "../controllers/jobController";
 import { getRecruiterJobs } from "../controllers/jobController";
 import { createRecruiterJob } from "../controllers/jobController";
 import { searchSkills } from "../controllers/jobController";
@@ -15,6 +16,7 @@ import { updateRecruiterJob } from "../controllers/jobController";
 const router = express.Router();
 
 router.get("/", getPublicJobs);
+router.get("/categories", getCategories);
 router.get("/skills", searchSkills);
 router.post("/:jobId/apply", upload.single("cv"), applyToJob);
 router.get("/:jobId/apply-status/:userId", getCandidateApplyStatus);
