@@ -140,15 +140,15 @@ const formatSalaryLabel = (
   salaryMax: number | null,
 ) => {
   if (salaryMin !== null && salaryMax !== null) {
-    return `${formatMillionVnd(salaryMin)}-${formatMillionVnd(salaryMax)} triệu`;
+    return `${formatMillionVnd(salaryMin)} - ${formatMillionVnd(salaryMax)} mil VND`;
   }
 
   if (salaryMax !== null) {
-    return `Up to ${formatMillionVnd(salaryMax)} triệu`;
+    return `Up to ${formatMillionVnd(salaryMax)} mil VND`;
   }
 
   if (salaryMin !== null) {
-    return `From ${formatMillionVnd(salaryMin)} triệu`;
+    return `From ${formatMillionVnd(salaryMin)} mil VND`;
   }
 
   return "Salary negotiable";

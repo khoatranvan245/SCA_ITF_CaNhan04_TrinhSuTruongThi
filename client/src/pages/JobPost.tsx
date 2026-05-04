@@ -22,14 +22,14 @@ type SkillOption = {
 };
 
 const toDateOnly = (value: string): Date | null => {
-  const match = value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (!match) {
     return null;
   }
 
-  const day = Number(match[1]);
+  const year = Number(match[1]);
   const month = Number(match[2]);
-  const year = Number(match[3]);
+  const day = Number(match[3]);
   const parsed = new Date(year, month - 1, day);
 
   if (
@@ -246,23 +246,9 @@ const JobPost = () => {
   };
 
   const handleExpirationDateChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const rawValue = event.target.value.replace(/[^0-9]/g, "").slice(0, 8);
-
-    const day = rawValue.slice(0, 2);
-    const month = rawValue.slice(2, 4);
-    const year = rawValue.slice(4, 8);
-
-    let formattedValue = day;
-    if (month) {
-      formattedValue += `/${month}`;
-    }
-    if (year) {
-      formattedValue += `/${year}`;
-    }
-
     setFormData((current) => ({
       ...current,
-      expirationDate: formattedValue,
+      expirationDate: event.target.value,
     }));
   };
 
@@ -673,10 +659,7 @@ const JobPost = () => {
                   <input
                     className="w-full bg-white border border-gray-300 rounded-xl px-5 py-4 outline-none focus:border-black transition-all text-on-surface"
                     name="expirationDate"
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="dd/mm/yyyy"
-                    maxLength={10}
+                    type="date"
                     value={formData.expirationDate}
                     onChange={handleExpirationDateChange}
                   />
