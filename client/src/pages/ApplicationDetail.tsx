@@ -133,41 +133,6 @@ const ApplicationDetail = () => {
                 </p>
               </section>
             </div>
-            {/* Skills  */}
-            <section className="bg-surface-container-low p-8 rounded-xl">
-              <h4 className="text-[10px] font-bold tracking-widest uppercase text-on-surface-variant mb-6">
-                Expertise &amp; Technical Skills
-              </h4>
-              <div className="flex flex-wrap gap-3">
-                <span className="bg-surface-container-lowest text-primary px-4 py-2 rounded-xl text-sm font-semibold shadow-sm">
-                  UI/UX Design
-                </span>
-                <span className="bg-surface-container-lowest text-primary px-4 py-2 rounded-xl text-sm font-semibold shadow-sm">
-                  React
-                </span>
-                <span className="bg-surface-container-lowest text-primary px-4 py-2 rounded-xl text-sm font-semibold shadow-sm">
-                  Figma
-                </span>
-                <span className="bg-surface-container-lowest text-primary px-4 py-2 rounded-xl text-sm font-semibold shadow-sm">
-                  System Architecture
-                </span>
-                <span className="bg-surface-container-lowest text-primary px-4 py-2 rounded-xl text-sm font-semibold shadow-sm">
-                  Tailwind CSS
-                </span>
-                <span className="bg-surface-container-lowest text-primary px-4 py-2 rounded-xl text-sm font-semibold shadow-sm">
-                  Design Tokens
-                </span>
-                <span className="bg-surface-container-lowest text-primary px-4 py-2 rounded-xl text-sm font-semibold shadow-sm">
-                  TypeScript
-                </span>
-                <span className="bg-surface-container-lowest text-primary px-4 py-2 rounded-xl text-sm font-semibold shadow-sm">
-                  Web Accessibility
-                </span>
-                <span className="bg-surface-container-lowest text-primary px-4 py-2 rounded-xl text-sm font-semibold shadow-sm">
-                  A/B Testing
-                </span>
-              </div>
-            </section>
             {/* CV Preview Card (Moved here)  */}
             <section className="bg-surface-container-lowest rounded-xl shadow-sm border border-outline-variant border-opacity-10 p-8">
               <h4 className="text-[10px] font-bold tracking-widest uppercase text-on-surface-variant mb-6">

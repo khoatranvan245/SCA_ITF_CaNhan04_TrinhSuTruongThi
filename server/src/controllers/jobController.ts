@@ -672,6 +672,7 @@ export const getJobApplications = async (req: Request, res: Response) => {
         application_id: application.application_id,
         status: application.status,
         created_at: application.created_at,
+        cover_letter: application.cover_letter || null,
         ai_evaluation: application.ai_evaluations[0]
           ? {
               score: application.ai_evaluations[0].score,
@@ -792,6 +793,7 @@ export const getRecruiterApplications = async (req: Request, res: Response) => {
         application_id: application.application_id,
         status: application.status,
         created_at: application.created_at,
+        cover_letter: application.cover_letter || null,
         job: {
           job_id: application.job_id,
           title: jobLookup.get(application.job_id)?.title ?? "Job",
