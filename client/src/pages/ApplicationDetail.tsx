@@ -124,7 +124,7 @@ const ApplicationDetail = () => {
               {/* Professional Intro  */}
               <section className="bg-surface-container-low p-8 rounded-xl">
                 <h4 className="text-[10px] font-bold tracking-widest uppercase text-on-surface-variant mb-6">
-                  Introduction
+                  Cover letter
                 </h4>
                 <p className="text-on-surface leading-relaxed text-sm">
                   {application?.cover_letter
