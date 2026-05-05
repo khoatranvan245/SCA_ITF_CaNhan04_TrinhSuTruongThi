@@ -25,7 +25,10 @@ router.get("/skills", searchSkills);
 router.post("/:jobId/apply", upload.single("cv"), applyToJob);
 router.get("/:jobId/apply-status/:userId", getCandidateApplyStatus);
 router.get("/:jobId/applications", getJobApplications);
-router.get("/:jobId/applications/:applicationId/resume/download-url", getApplicationResumeDownloadUrl);
+router.get(
+  "/:jobId/applications/:applicationId/resume/download-url",
+  getApplicationResumeDownloadUrl,
+);
 router.get("/recruiter/:userId/applications", getRecruiterApplications);
 router.patch(
   "/recruiter/:userId/jobs/:jobId/applications/:applicationId/reviewing",
