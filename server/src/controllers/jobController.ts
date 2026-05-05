@@ -523,6 +523,7 @@ export const applyToJob = async (req: Request, res: Response) => {
           select: {
             title: true,
             requirements: true,
+            experience_years: true,
             job_skills: {
               include: {
                 skill: true,
@@ -548,6 +549,7 @@ export const applyToJob = async (req: Request, res: Response) => {
             name: item.skill.name,
           })),
           jobTitle: jobDetails.title,
+          jobExperienceYears: jobDetails.experience_years ?? null,
         });
 
         await prisma.aIEvaluation.create({
