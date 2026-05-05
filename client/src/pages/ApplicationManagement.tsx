@@ -53,6 +53,8 @@ const statusBadgeClasses: Record<string, string> = {
   success: "bg-green-100 text-green-800",
   accepted: "bg-green-100 text-green-800",
   reviewed: "bg-purple-100 text-purple-800",
+  reviewing: "bg-purple-100 text-purple-800",
+  expired: "bg-gray-200 text-gray-700",
   failed: "bg-red-100 text-red-800",
   rejected: "bg-red-100 text-red-800",
 };
@@ -63,6 +65,8 @@ const statusDotClasses: Record<string, string> = {
   success: "bg-green-500",
   accepted: "bg-green-500",
   reviewed: "bg-purple-500",
+  reviewing: "bg-purple-500",
+  expired: "bg-gray-500",
   failed: "bg-red-500",
   rejected: "bg-red-500",
 };
@@ -73,6 +77,8 @@ const statusLabels: Record<string, string> = {
   success: "Success",
   accepted: "Accepted",
   reviewed: "Reviewed",
+  reviewing: "Reviewing",
+  expired: "Expired",
   failed: "Failed",
   rejected: "Rejected",
 };
@@ -302,7 +308,6 @@ const ApplicationManagement = () => {
                 <th className="px-6 py-5 font-bold text-[0.7rem] uppercase tracking-wider">
                   Email Address
                 </th>
-
               </tr>
             </thead>
             <tbody className="divide-y divide-surface-container-low">

@@ -8,6 +8,21 @@ import {
 
 const AVATAR_BUCKET_NAME = "Avatar";
 const CV_BUCKET_NAME = "CV";
+const EXPIRABLE_APPLICATION_STATUSES = new Set(["pending", "reviewing"]);
+
+function shouldExpireApplication(
+  status: string,
+  expirationDate: Date | null | undefined,
+): boolean {
+  if (!expirationDate) {
+    return false;
+  }
+
+  return (
+    expirationDate.getTime() < Date.now() &&
+    EXPIRABLE_APPLICATION_STATUSES.has(status.toLowerCase())
+  );
+}
 
 function parseUserId(rawUserId: string | string[] | undefined): number | null {
   const normalizedValue = Array.isArray(rawUserId) ? rawUserId[0] : rawUserId;
@@ -614,12 +629,45 @@ export const getCandidateApplyStatus = async (req: Request, res: Response) => {
       select: {
         application_id: true,
         status: true,
+        job: {
+          select: {
+            expiration_date: true,
+          },
+        },
       },
     });
 
+    if (
+      application &&
+      shouldExpireApplication(
+        application.status,
+        application.job?.expiration_date,
+      )
+    ) {
+      const expiredApplication = await prisma.application.update({
+        where: { application_id: application.application_id },
+        data: { status: "expired" },
+        select: {
+          application_id: true,
+          status: true,
+        },
+      });
+
+      res.status(200).json({
+        hasApplied: true,
+        application: expiredApplication,
+      });
+      return;
+    }
+
     res.status(200).json({
       hasApplied: Boolean(application),
-      application,
+      application: application
+        ? {
+            application_id: application.application_id,
+            status: application.status,
+          }
+        : null,
     });
   } catch (error) {
     console.error("Get candidate apply status error:", error);
@@ -643,12 +691,34 @@ export const getJobApplications = async (req: Request, res: Response) => {
 
     const job = await prisma.job.findUnique({
       where: { job_id: jobId },
-      select: { job_id: true, title: true, created_at: true },
+      select: {
+        job_id: true,
+        title: true,
+        created_at: true,
+        expiration_date: true,
+      },
     });
 
     if (!job) {
       res.status(404).json({ message: "Job not found" });
       return;
+    }
+
+    const shouldExpireByJobDeadline = shouldExpireApplication(
+      "pending",
+      job.expiration_date,
+    );
+
+    if (shouldExpireByJobDeadline) {
+      await prisma.application.updateMany({
+        where: {
+          job_id: jobId,
+          status: {
+            in: ["pending", "reviewing"],
+          },
+        },
+        data: { status: "expired" },
+      });
     }
 
     const applications = await prisma.application.findMany({
@@ -721,6 +791,244 @@ export const getJobApplications = async (req: Request, res: Response) => {
   }
 };
 
+export const markApplicationAsReviewing = async (
+  req: Request,
+  res: Response,
+) => {
+  try {
+    await prisma.$connect();
+
+    const userId = parseUserId(req.params.userId);
+    const jobId = parseJobId(req.params.jobId);
+    const applicationId = parsePositiveInteger(req.params.applicationId);
+
+    if (!userId) {
+      res.status(400).json({ message: "Invalid user id" });
+      return;
+    }
+
+    if (!jobId) {
+      res.status(400).json({ message: "Invalid job id" });
+      return;
+    }
+
+    if (!applicationId) {
+      res.status(400).json({ message: "Invalid application id" });
+      return;
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { user_id: userId },
+      include: { role: true },
+    });
+
+    if (!user || user.role?.title?.toLowerCase() !== "recruiter") {
+      res.status(403).json({ message: "Access denied" });
+      return;
+    }
+
+    const company = await prisma.company.findFirst({
+      where: { user_id: userId },
+      select: { company_id: true },
+    });
+
+    if (!company) {
+      res.status(404).json({ message: "Company not found for this recruiter" });
+      return;
+    }
+
+    const job = await prisma.job.findFirst({
+      where: {
+        job_id: jobId,
+        company_id: company.company_id,
+      },
+      select: {
+        job_id: true,
+        expiration_date: true,
+      },
+    });
+
+    if (!job) {
+      res.status(404).json({ message: "Job not found" });
+      return;
+    }
+
+    const application = await prisma.application.findFirst({
+      where: {
+        application_id: applicationId,
+        job_id: job.job_id,
+      },
+      select: {
+        application_id: true,
+        status: true,
+      },
+    });
+
+    if (!application) {
+      res.status(404).json({ message: "Application not found" });
+      return;
+    }
+
+    if (shouldExpireApplication(application.status, job.expiration_date)) {
+      const expiredApplication = await prisma.application.update({
+        where: { application_id: application.application_id },
+        data: { status: "expired" },
+        select: {
+          application_id: true,
+          status: true,
+        },
+      });
+
+      res.status(200).json({ application: expiredApplication });
+      return;
+    }
+
+    if (application.status === "pending") {
+      const updatedApplication = await prisma.application.update({
+        where: { application_id: application.application_id },
+        data: { status: "reviewing" },
+        select: {
+          application_id: true,
+          status: true,
+        },
+      });
+
+      res.status(200).json({ application: updatedApplication });
+      return;
+    }
+
+    res.status(200).json({ application });
+  } catch (error) {
+    console.error("Mark application as reviewing error:", error);
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
+    res
+      .status(500)
+      .json({ message: "Internal server error", error: errorMessage });
+  }
+};
+
+export const updateApplicationDecision = async (
+  req: Request,
+  res: Response,
+) => {
+  try {
+    await prisma.$connect();
+
+    const userId = parseUserId(req.params.userId);
+    const jobId = parseJobId(req.params.jobId);
+    const applicationId = parsePositiveInteger(req.params.applicationId);
+    const status =
+      typeof req.body.status === "string"
+        ? req.body.status.trim().toLowerCase()
+        : "";
+
+    if (!userId) {
+      res.status(400).json({ message: "Invalid user id" });
+      return;
+    }
+
+    if (!jobId) {
+      res.status(400).json({ message: "Invalid job id" });
+      return;
+    }
+
+    if (!applicationId) {
+      res.status(400).json({ message: "Invalid application id" });
+      return;
+    }
+
+    if (status !== "accepted" && status !== "rejected") {
+      res.status(400).json({ message: "Status must be accepted or rejected" });
+      return;
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { user_id: userId },
+      include: { role: true },
+    });
+
+    if (!user || user.role?.title?.toLowerCase() !== "recruiter") {
+      res.status(403).json({ message: "Access denied" });
+      return;
+    }
+
+    const company = await prisma.company.findFirst({
+      where: { user_id: userId },
+      select: { company_id: true },
+    });
+
+    if (!company) {
+      res.status(404).json({ message: "Company not found for this recruiter" });
+      return;
+    }
+
+    const job = await prisma.job.findFirst({
+      where: {
+        job_id: jobId,
+        company_id: company.company_id,
+      },
+      select: {
+        job_id: true,
+        expiration_date: true,
+      },
+    });
+
+    if (!job) {
+      res.status(404).json({ message: "Job not found" });
+      return;
+    }
+
+    const application = await prisma.application.findFirst({
+      where: {
+        application_id: applicationId,
+        job_id: job.job_id,
+      },
+      select: {
+        application_id: true,
+        status: true,
+      },
+    });
+
+    if (!application) {
+      res.status(404).json({ message: "Application not found" });
+      return;
+    }
+
+    if (shouldExpireApplication(application.status, job.expiration_date)) {
+      const expiredApplication = await prisma.application.update({
+        where: { application_id: application.application_id },
+        data: { status: "expired" },
+        select: {
+          application_id: true,
+          status: true,
+        },
+      });
+
+      res.status(200).json({ application: expiredApplication });
+      return;
+    }
+
+    const updatedApplication = await prisma.application.update({
+      where: { application_id: application.application_id },
+      data: { status },
+      select: {
+        application_id: true,
+        status: true,
+      },
+    });
+
+    res.status(200).json({ application: updatedApplication });
+  } catch (error) {
+    console.error("Update application decision error:", error);
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
+    res
+      .status(500)
+      .json({ message: "Internal server error", error: errorMessage });
+  }
+};
+
 export const getRecruiterApplications = async (req: Request, res: Response) => {
   try {
     await prisma.$connect();
@@ -760,9 +1068,28 @@ export const getRecruiterApplications = async (req: Request, res: Response) => {
         job_id: true,
         title: true,
         created_at: true,
+        expiration_date: true,
       },
       orderBy: { created_at: "desc" },
     });
+
+    const expiredJobIds = jobs
+      .filter((job) => shouldExpireApplication("pending", job.expiration_date))
+      .map((job) => job.job_id);
+
+    if (expiredJobIds.length > 0) {
+      await prisma.application.updateMany({
+        where: {
+          job_id: {
+            in: expiredJobIds,
+          },
+          status: {
+            in: ["pending", "reviewing"],
+          },
+        },
+        data: { status: "expired" },
+      });
+    }
 
     const jobLookup = new Map(jobs.map((job) => [job.job_id, job] as const));
 

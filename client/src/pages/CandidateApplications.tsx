@@ -59,6 +59,16 @@ const statusConfig: Record<string, ApplicationBadgeConfig> = {
     dotClassName: "bg-on-tertiary-fixed-variant",
     label: "Reviewed",
   },
+  reviewing: {
+    className: "bg-tertiary-fixed text-on-tertiary-fixed-variant",
+    dotClassName: "bg-on-tertiary-fixed-variant",
+    label: "Reviewing",
+  },
+  expired: {
+    className: "bg-surface-container-high text-on-surface-variant",
+    dotClassName: "bg-outline",
+    label: "Expired",
+  },
   failed: {
     className: "bg-error-container text-on-error-container",
     dotClassName: "bg-error",

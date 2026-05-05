@@ -366,7 +366,7 @@ const JobApply = ({
 
           <div className="space-y-2">
             <label className="text-[10px] font-bold tracking-widest uppercase text-secondary px-1">
-              Quick Introduction
+              Cover Letter
             </label>
             <textarea
               className="w-full resize-none rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-black focus:ring-0"

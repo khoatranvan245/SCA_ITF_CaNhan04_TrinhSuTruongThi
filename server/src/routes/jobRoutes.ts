@@ -13,6 +13,8 @@ import { searchSkills } from "../controllers/jobController";
 import { deleteRecruiterJob } from "../controllers/jobController";
 import { getRecruiterJobById } from "../controllers/jobController";
 import { updateRecruiterJob } from "../controllers/jobController";
+import { markApplicationAsReviewing } from "../controllers/jobController";
+import { updateApplicationDecision } from "../controllers/jobController";
 
 const router = express.Router();
 
@@ -23,6 +25,14 @@ router.post("/:jobId/apply", upload.single("cv"), applyToJob);
 router.get("/:jobId/apply-status/:userId", getCandidateApplyStatus);
 router.get("/:jobId/applications", getJobApplications);
 router.get("/recruiter/:userId/applications", getRecruiterApplications);
+router.patch(
+  "/recruiter/:userId/jobs/:jobId/applications/:applicationId/reviewing",
+  markApplicationAsReviewing,
+);
+router.patch(
+  "/recruiter/:userId/jobs/:jobId/applications/:applicationId/status",
+  updateApplicationDecision,
+);
 router.get("/:jobId", getPublicJobById);
 router.get("/recruiter/:userId", getRecruiterJobs);
 router.post("/recruiter/:userId", createRecruiterJob);

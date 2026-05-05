@@ -1,9 +1,16 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation, useParams } from "react-router-dom";
 
 type LocationState = {
   application?: any;
   job?: { job_id?: number; title?: string; created_at?: string };
+};
+
+type StoredUser = {
+  user_id?: number;
+  role?: {
+    title?: string;
+  };
 };
 
 const ApplicationDetail = () => {
@@ -16,6 +23,13 @@ const ApplicationDetail = () => {
   const [application, setApplication] = useState<any>(
     state.application || null,
   );
+  const didMarkReviewingRef = useRef(false);
+  const [decisionLoading, setDecisionLoading] = useState(false);
+  const [decisionError, setDecisionError] = useState("");
+  const [decisionNotice, setDecisionNotice] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
 
   useEffect(() => {
     if (application) return;
@@ -36,6 +50,137 @@ const ApplicationDetail = () => {
 
     fetchApplications();
   }, [application, applicationId, jobId]);
+
+  useEffect(() => {
+    const rawUser = localStorage.getItem("user");
+    if (
+      !rawUser ||
+      !application?.application_id ||
+      didMarkReviewingRef.current
+    ) {
+      return;
+    }
+
+    try {
+      const user = JSON.parse(rawUser) as StoredUser;
+      const isRecruiter = user?.role?.title?.toLowerCase() === "recruiter";
+
+      if (!isRecruiter || typeof user.user_id !== "number" || !jobId) {
+        return;
+      }
+
+      if (application.status === "reviewing") {
+        didMarkReviewingRef.current = true;
+        return;
+      }
+
+      didMarkReviewingRef.current = true;
+
+      void fetch(
+        `http://localhost:3000/api/jobs/recruiter/${user.user_id}/jobs/${jobId}/applications/${application.application_id}/reviewing`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      )
+        .then(async (resp) => {
+          const data = await resp.json();
+          if (!resp.ok || !data.application) {
+            return;
+          }
+
+          setApplication((current: any) => ({
+            ...current,
+            status: data.application.status,
+          }));
+        })
+        .catch((error) => {
+          console.error("Failed to mark application as reviewing", error);
+        });
+    } catch {
+      return;
+    }
+  }, [application, jobId]);
+
+  const updateDecision = async (nextStatus: "accepted" | "rejected") => {
+    if (!application?.application_id || !jobId) {
+      return;
+    }
+
+    const rawUser = localStorage.getItem("user");
+    if (!rawUser) {
+      setDecisionError("You must be logged in as recruiter.");
+      return;
+    }
+
+    try {
+      const user = JSON.parse(rawUser) as StoredUser;
+      const isRecruiter = user?.role?.title?.toLowerCase() === "recruiter";
+
+      if (!isRecruiter || typeof user.user_id !== "number") {
+        const message = "Only recruiters can update application decision.";
+        setDecisionError(message);
+        setDecisionNotice({ type: "error", message });
+        return;
+      }
+
+      setDecisionLoading(true);
+      setDecisionError("");
+
+      const response = await fetch(
+        `http://localhost:3000/api/jobs/recruiter/${user.user_id}/jobs/${jobId}/applications/${application.application_id}/status`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ status: nextStatus }),
+        },
+      );
+
+      const data = await response.json();
+
+      if (!response.ok || !data.application) {
+        const message = data.message || "Failed to update application status.";
+        setDecisionError(message);
+        setDecisionNotice({ type: "error", message });
+        return;
+      }
+
+      setApplication((current: any) => ({
+        ...current,
+        status: data.application.status,
+      }));
+      setDecisionNotice({
+        type: "success",
+        message:
+          data.application.status === "accepted"
+            ? "Application has been accepted."
+            : "Application has been declined.",
+      });
+    } catch (error) {
+      console.error("Failed to update application decision", error);
+      const message = "Failed to update application status.";
+      setDecisionError(message);
+      setDecisionNotice({ type: "error", message });
+    } finally {
+      setDecisionLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!decisionNotice) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      setDecisionNotice(null);
+    }, 3000);
+
+    return () => window.clearTimeout(timeout);
+  }, [decisionNotice]);
 
   return (
     <div className="bg-background text-on-surface antialiased min-h-screen">
@@ -66,7 +211,52 @@ const ApplicationDetail = () => {
               {application?.candidate?.full_name ?? "Candidate"}
             </h1>
           </div>
+
+          <div className="flex flex-col items-start md:items-end gap-3">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => updateDecision("rejected")}
+                disabled={
+                  decisionLoading ||
+                  application?.status?.toLowerCase() === "rejected"
+                }
+                className="px-5 py-2.5 rounded-lg font-semibold border border-error text-error hover:bg-error/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Decline
+              </button>
+              <button
+                type="button"
+                onClick={() => updateDecision("accepted")}
+                disabled={
+                  decisionLoading ||
+                  application?.status?.toLowerCase() === "accepted"
+                }
+                className="px-5 py-2.5 rounded-lg font-semibold bg-green-600 text-white hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Accept
+              </button>
+            </div>
+          </div>
         </header>
+
+        {decisionNotice && (
+          <div
+            className={`mb-6 rounded-lg px-4 py-3 text-sm font-medium ${
+              decisionNotice.type === "success"
+                ? "bg-green-100 text-green-800"
+                : "bg-red-100 text-red-800"
+            }`}
+          >
+            {decisionNotice.message}
+          </div>
+        )}
+
+        {decisionError && (
+          <div className="mb-6 rounded-lg px-4 py-3 text-sm font-medium bg-red-100 text-red-800">
+            {decisionError}
+          </div>
+        )}
         {/* Bento Grid Layout  */}
         <div className="grid grid-cols-12 gap-8">
           {/* Main Content Area (Left/Center)  */}

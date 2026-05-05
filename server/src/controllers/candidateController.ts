@@ -6,6 +6,21 @@ import { supabaseAdmin } from "../lib/supabaseAdmin";
 const ROLE_CANDIDATE = 1;
 const AVATAR_BUCKET_NAME = "Avatar";
 const CV_BUCKET_NAME = "CV";
+const EXPIRABLE_APPLICATION_STATUSES = new Set(["pending", "reviewing"]);
+
+function shouldExpireApplication(
+  status: string,
+  expirationDate: Date | null | undefined,
+): boolean {
+  if (!expirationDate) {
+    return false;
+  }
+
+  return (
+    expirationDate.getTime() < Date.now() &&
+    EXPIRABLE_APPLICATION_STATUSES.has(status.toLowerCase())
+  );
+}
 
 function normalizeSkillName(value: string): string {
   return value
@@ -246,10 +261,36 @@ export const getCandidateApplications = async (req: Request, res: Response) => {
       orderBy: { created_at: "desc" },
     });
 
+    const expiredApplicationIds = applications
+      .filter((application) =>
+        shouldExpireApplication(
+          application.status,
+          application.job.expiration_date,
+        ),
+      )
+      .map((application) => application.application_id);
+
+    if (expiredApplicationIds.length > 0) {
+      await prisma.application.updateMany({
+        where: {
+          application_id: {
+            in: expiredApplicationIds,
+          },
+        },
+        data: {
+          status: "expired",
+        },
+      });
+    }
+
+    const expiredIdSet = new Set(expiredApplicationIds);
+
     const applicationsWithLogos = await Promise.all(
       applications.map(async (application) => ({
         application_id: application.application_id,
-        status: application.status,
+        status: expiredIdSet.has(application.application_id)
+          ? "expired"
+          : application.status,
         created_at: application.created_at,
         job: {
           job_id: application.job.job_id,

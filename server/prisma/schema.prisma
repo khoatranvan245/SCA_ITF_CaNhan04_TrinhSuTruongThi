@@ -50,7 +50,7 @@ model Company {
   address             String?
 
   user            User             @relation(fields: [user_id], references: [user_id])
-  companyCategory CompanyCategory?  @relation(fields: [company_category_id], references: [company_category_id])
+  companyCategory CompanyCategory? @relation(fields: [company_category_id], references: [company_category_id])
   city            City?            @relation(fields: [city_id], references: [city_id])
   jobs            Job[]
 }
@@ -205,4 +205,5 @@ enum ApplicationStatus {
   reviewing
   rejected
   accepted
+  expired
 }
