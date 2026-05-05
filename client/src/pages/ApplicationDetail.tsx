@@ -30,6 +30,7 @@ const ApplicationDetail = () => {
     type: "success" | "error";
     message: string;
   } | null>(null);
+  const [downloadLoading, setDownloadLoading] = useState(false);
 
   useEffect(() => {
     if (application) return;
@@ -167,6 +168,34 @@ const ApplicationDetail = () => {
       setDecisionNotice({ type: "error", message });
     } finally {
       setDecisionLoading(false);
+    }
+  };
+
+  const handleDownloadCV = async () => {
+    if (!application?.resume?.file_url || !jobId || !applicationId) {
+      return;
+    }
+
+    setDownloadLoading(true);
+
+    try {
+      const response = await fetch(
+        `http://localhost:3000/api/jobs/${jobId}/applications/${applicationId}/resume/download-url`,
+      );
+
+      const data = await response.json();
+
+      if (!response.ok || !data.downloadUrl) {
+        console.error("Failed to get download URL:", data.message);
+        return;
+      }
+
+      // Open download URL in a new tab
+      window.open(data.downloadUrl, "_blank");
+    } catch (error) {
+      console.error("Failed to download CV:", error);
+    } finally {
+      setDownloadLoading(false);
     }
   };
 
@@ -344,11 +373,16 @@ const ApplicationDetail = () => {
                     </p>
                   </div>
                 </div>
-                <button className="bg-primary text-on-primary px-6 py-2.5 rounded-lg font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-all shadow-sm">
+                <button
+                  type="button"
+                  onClick={handleDownloadCV}
+                  disabled={!application?.resume?.file_url || downloadLoading}
+                  className="bg-primary text-on-primary px-6 py-2.5 rounded-lg font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
                   <span className="material-symbols-outlined text-lg">
-                    download
+                    {downloadLoading ? "hourglass_top" : "download"}
                   </span>
-                  Download
+                  {downloadLoading ? "Downloading..." : "Download"}
                 </button>
               </div>
             </section>

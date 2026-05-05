@@ -4,6 +4,14 @@ import { supabaseAdmin } from "../lib/supabaseAdmin";
 const ROLE_CANDIDATE = 1;
 const AVATAR_BUCKET_NAME = "Avatar";
 const CV_BUCKET_NAME = "CV";
+const EXPIRABLE_APPLICATION_STATUSES = new Set(["pending", "reviewing"]);
+function shouldExpireApplication(status, expirationDate) {
+    if (!expirationDate) {
+        return false;
+    }
+    return (expirationDate.getTime() < Date.now() &&
+        EXPIRABLE_APPLICATION_STATUSES.has(status.toLowerCase()));
+}
 function normalizeSkillName(value) {
     return value
         .normalize("NFD")
@@ -188,7 +196,7 @@ export const getCandidateApplications = async (req, res) => {
             include: {
                 job: {
                     include: {
-                        category: true,
+                        jobCategory: true,
                         company: {
                             include: {
                                 city: true,
@@ -200,14 +208,32 @@ export const getCandidateApplications = async (req, res) => {
             },
             orderBy: { created_at: "desc" },
         });
+        const expiredApplicationIds = applications
+            .filter((application) => shouldExpireApplication(application.status, application.job.expiration_date))
+            .map((application) => application.application_id);
+        if (expiredApplicationIds.length > 0) {
+            await prisma.application.updateMany({
+                where: {
+                    application_id: {
+                        in: expiredApplicationIds,
+                    },
+                },
+                data: {
+                    status: "expired",
+                },
+            });
+        }
+        const expiredIdSet = new Set(expiredApplicationIds);
         const applicationsWithLogos = await Promise.all(applications.map(async (application) => ({
             application_id: application.application_id,
-            status: application.status,
+            status: expiredIdSet.has(application.application_id)
+                ? "expired"
+                : application.status,
             created_at: application.created_at,
             job: {
                 job_id: application.job.job_id,
                 title: application.job.title,
-                category: application.job.category?.title ?? "General",
+                category: application.job.jobCategory?.title ?? "General",
                 company_name: application.job.company.name,
                 company_avatar_url: await formatAvatarUrl(application.job.company.avatar_url, application.job.company.updated_at),
                 company_location: application.job.company.city?.name ||

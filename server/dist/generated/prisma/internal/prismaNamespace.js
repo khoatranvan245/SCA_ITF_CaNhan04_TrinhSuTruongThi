@@ -70,7 +70,8 @@ export const ModelName = {
     Role: 'Role',
     User: 'User',
     Company: 'Company',
-    Category: 'Category',
+    JobCategory: 'JobCategory',
+    CompanyCategory: 'CompanyCategory',
     Job: 'Job',
     Candidate: 'Candidate',
     Resume: 'Resume',
@@ -110,15 +111,22 @@ export const CompanyScalarFieldEnum = {
     description: 'description',
     website: 'website',
     avatar_url: 'avatar_url',
-    category_id: 'category_id',
+    company_category_id: 'company_category_id',
     user_id: 'user_id',
     created_at: 'created_at',
     updated_at: 'updated_at',
     city_id: 'city_id',
     address: 'address'
 };
-export const CategoryScalarFieldEnum = {
-    category_id: 'category_id',
+export const JobCategoryScalarFieldEnum = {
+    job_category_id: 'job_category_id',
+    title: 'title',
+    description: 'description',
+    created_at: 'created_at',
+    updated_at: 'updated_at'
+};
+export const CompanyCategoryScalarFieldEnum = {
+    company_category_id: 'company_category_id',
     title: 'title',
     description: 'description',
     created_at: 'created_at',
@@ -135,7 +143,7 @@ export const JobScalarFieldEnum = {
     benefits: 'benefits',
     status: 'status',
     expiration_date: 'expiration_date',
-    category_id: 'category_id',
+    job_category_id: 'job_category_id',
     company_id: 'company_id',
     created_at: 'created_at',
     updated_at: 'updated_at'

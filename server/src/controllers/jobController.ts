@@ -1884,3 +1884,73 @@ export const deleteRecruiterJob = async (req: Request, res: Response) => {
       .json({ message: "Internal server error", error: errorMessage });
   }
 };
+
+export const getApplicationResumeDownloadUrl = async (
+  req: Request,
+  res: Response,
+) => {
+  try {
+    await prisma.$connect();
+
+    const jobId = parseJobId(req.params.jobId);
+    const applicationId = parsePositiveInteger(req.params.applicationId);
+
+    if (!jobId) {
+      res.status(400).json({ message: "Invalid job id" });
+      return;
+    }
+
+    if (!applicationId) {
+      res.status(400).json({ message: "Invalid application id" });
+      return;
+    }
+
+    const application = await prisma.application.findFirst({
+      where: {
+        application_id: applicationId,
+        job_id: jobId,
+      },
+      include: {
+        resume: true,
+        job: {
+          select: {
+            company_id: true,
+          },
+        },
+      },
+    });
+
+    if (!application || !application.resume) {
+      res.status(404).json({ message: "Application or resume not found" });
+      return;
+    }
+
+    if (!application.resume.file_url) {
+      res.status(404).json({ message: "Resume file not found" });
+      return;
+    }
+
+    // Generate signed URL for 1 hour
+    const { data, error } = await supabaseAdmin.storage
+      .from(CV_BUCKET_NAME)
+      .createSignedUrl(application.resume.file_url, 3600);
+
+    if (error || !data?.signedUrl) {
+      console.error("Failed to generate signed URL:", error);
+      res.status(500).json({ message: "Failed to generate download URL" });
+      return;
+    }
+
+    res.status(200).json({
+      downloadUrl: data.signedUrl,
+      fileName: application.resume.name,
+    });
+  } catch (error) {
+    console.error("Get application resume download URL error:", error);
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
+    res
+      .status(500)
+      .json({ message: "Internal server error", error: errorMessage });
+  }
+};

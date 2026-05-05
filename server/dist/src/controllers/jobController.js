@@ -3,7 +3,14 @@ import { supabaseAdmin } from "../lib/supabaseAdmin";
 import { evaluateApplicationAI, extractCvTextFromSupabase, } from "../lib/aiEvaluation";
 const AVATAR_BUCKET_NAME = "Avatar";
 const CV_BUCKET_NAME = "CV";
-const ROLE_RECRUITER = 2;
+const EXPIRABLE_APPLICATION_STATUSES = new Set(["pending", "reviewing"]);
+function shouldExpireApplication(status, expirationDate) {
+    if (!expirationDate) {
+        return false;
+    }
+    return (expirationDate.getTime() < Date.now() &&
+        EXPIRABLE_APPLICATION_STATUSES.has(status.toLowerCase()));
+}
 function parseUserId(rawUserId) {
     const normalizedValue = Array.isArray(rawUserId) ? rawUserId[0] : rawUserId;
     const userId = Number(normalizedValue);
@@ -109,13 +116,13 @@ const formatMillionVnd = (value) => {
 };
 const formatSalaryLabel = (salaryMin, salaryMax) => {
     if (salaryMin !== null && salaryMax !== null) {
-        return `${formatMillionVnd(salaryMin)}-${formatMillionVnd(salaryMax)} triệu`;
+        return `${formatMillionVnd(salaryMin)} - ${formatMillionVnd(salaryMax)} mil VND`;
     }
     if (salaryMax !== null) {
-        return `Up to ${formatMillionVnd(salaryMax)} triệu`;
+        return `Up to ${formatMillionVnd(salaryMax)} mil VND`;
     }
     if (salaryMin !== null) {
-        return `From ${formatMillionVnd(salaryMin)} triệu`;
+        return `From ${formatMillionVnd(salaryMin)} mil VND`;
     }
     return "Salary negotiable";
 };
@@ -171,12 +178,13 @@ export const getPublicJobs = async (_req, res) => {
         await prisma.$connect();
         const jobs = await prisma.job.findMany({
             include: {
+                jobCategory: true,
                 company: {
                     include: {
+                        companyCategory: true,
                         city: true,
                     },
                 },
-                category: true,
                 job_skills: {
                     include: {
                         skill: true,
@@ -193,7 +201,7 @@ export const getPublicJobs = async (_req, res) => {
             company_name: job.company.name,
             company_avatar_url: await formatAvatarUrl(job.company.avatar_url, job.company.updated_at),
             experience_years: job.experience_years,
-            category: job.category?.title ?? "General",
+            category: job.jobCategory?.title ?? "General",
             location: job.company.city?.name || job.company.address || "Remote",
             created_at: job.created_at,
             salary_label: formatSalaryLabel(job.salary_min, job.salary_max),
@@ -203,6 +211,26 @@ export const getPublicJobs = async (_req, res) => {
     }
     catch (error) {
         console.error("Get public jobs error:", error);
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        res
+            .status(500)
+            .json({ message: "Internal server error", error: errorMessage });
+    }
+};
+export const getCategories = async (_req, res) => {
+    try {
+        await prisma.$connect();
+        const categories = await prisma.jobCategory.findMany({
+            orderBy: { title: "asc" },
+            select: {
+                job_category_id: true,
+                title: true,
+            },
+        });
+        res.status(200).json({ categories });
+    }
+    catch (error) {
+        console.error("Get job categories error:", error);
         const errorMessage = error instanceof Error ? error.message : "Unknown error";
         res
             .status(500)
@@ -220,13 +248,13 @@ export const getPublicJobById = async (req, res) => {
         const job = await prisma.job.findUnique({
             where: { job_id: jobId },
             include: {
+                jobCategory: true,
                 company: {
                     include: {
-                        category: true,
+                        companyCategory: true,
                         city: true,
                     },
                 },
-                category: true,
                 job_skills: {
                     include: {
                         skill: true,
@@ -245,11 +273,11 @@ export const getPublicJobById = async (req, res) => {
                 company_id: job.company.company_id,
                 company_name: job.company.name,
                 company_avatar_url: await formatAvatarUrl(job.company.avatar_url, job.company.updated_at),
-                company_category: job.company.category?.title ?? "General",
+                company_category: job.company.companyCategory?.title ?? "General",
                 company_address: [job.company.address, job.company.city?.name]
                     .filter((value) => Boolean(value && value.trim()))
                     .join(", ") || "Address not available",
-                category: job.category?.title ?? "General",
+                category: job.jobCategory?.title ?? "General",
                 location: job.company.city?.name || job.company.address || "Remote",
                 created_at: job.created_at,
                 expiration_date: job.expiration_date,
@@ -395,7 +423,8 @@ export const applyToJob = async (req, res) => {
                 job_id: jobId,
                 resume_id: resumeIdToUse,
                 status: "pending",
-                cover_letter: typeof req.body.introduction === "string" && req.body.introduction.trim()
+                cover_letter: typeof req.body.introduction === "string" &&
+                    req.body.introduction.trim()
                     ? req.body.introduction.trim()
                     : null,
             },
@@ -411,6 +440,7 @@ export const applyToJob = async (req, res) => {
                     select: {
                         title: true,
                         requirements: true,
+                        experience_years: true,
                         job_skills: {
                             include: {
                                 skill: true,
@@ -433,6 +463,7 @@ export const applyToJob = async (req, res) => {
                         name: item.skill.name,
                     })),
                     jobTitle: jobDetails.title,
+                    jobExperienceYears: jobDetails.experience_years ?? null,
                 });
                 await prisma.aIEvaluation.create({
                     data: {
@@ -490,11 +521,37 @@ export const getCandidateApplyStatus = async (req, res) => {
             select: {
                 application_id: true,
                 status: true,
+                job: {
+                    select: {
+                        expiration_date: true,
+                    },
+                },
             },
         });
+        if (application &&
+            shouldExpireApplication(application.status, application.job?.expiration_date)) {
+            const expiredApplication = await prisma.application.update({
+                where: { application_id: application.application_id },
+                data: { status: "expired" },
+                select: {
+                    application_id: true,
+                    status: true,
+                },
+            });
+            res.status(200).json({
+                hasApplied: true,
+                application: expiredApplication,
+            });
+            return;
+        }
         res.status(200).json({
             hasApplied: Boolean(application),
-            application,
+            application: application
+                ? {
+                    application_id: application.application_id,
+                    status: application.status,
+                }
+                : null,
         });
     }
     catch (error) {
@@ -515,11 +572,28 @@ export const getJobApplications = async (req, res) => {
         }
         const job = await prisma.job.findUnique({
             where: { job_id: jobId },
-            select: { job_id: true, title: true, created_at: true },
+            select: {
+                job_id: true,
+                title: true,
+                created_at: true,
+                expiration_date: true,
+            },
         });
         if (!job) {
             res.status(404).json({ message: "Job not found" });
             return;
+        }
+        const shouldExpireByJobDeadline = shouldExpireApplication("pending", job.expiration_date);
+        if (shouldExpireByJobDeadline) {
+            await prisma.application.updateMany({
+                where: {
+                    job_id: jobId,
+                    status: {
+                        in: ["pending", "reviewing"],
+                    },
+                },
+                data: { status: "expired" },
+            });
         }
         const applications = await prisma.application.findMany({
             where: { job_id: jobId },
@@ -542,6 +616,7 @@ export const getJobApplications = async (req, res) => {
             application_id: application.application_id,
             status: application.status,
             created_at: application.created_at,
+            cover_letter: application.cover_letter || null,
             ai_evaluation: application.ai_evaluations[0]
                 ? {
                     score: application.ai_evaluations[0].score,
@@ -582,6 +657,323 @@ export const getJobApplications = async (req, res) => {
             .json({ message: "Internal server error", error: errorMessage });
     }
 };
+export const markApplicationAsReviewing = async (req, res) => {
+    try {
+        await prisma.$connect();
+        const userId = parseUserId(req.params.userId);
+        const jobId = parseJobId(req.params.jobId);
+        const applicationId = parsePositiveInteger(req.params.applicationId);
+        if (!userId) {
+            res.status(400).json({ message: "Invalid user id" });
+            return;
+        }
+        if (!jobId) {
+            res.status(400).json({ message: "Invalid job id" });
+            return;
+        }
+        if (!applicationId) {
+            res.status(400).json({ message: "Invalid application id" });
+            return;
+        }
+        const user = await prisma.user.findUnique({
+            where: { user_id: userId },
+            include: { role: true },
+        });
+        if (!user || user.role?.title?.toLowerCase() !== "recruiter") {
+            res.status(403).json({ message: "Access denied" });
+            return;
+        }
+        const company = await prisma.company.findFirst({
+            where: { user_id: userId },
+            select: { company_id: true },
+        });
+        if (!company) {
+            res.status(404).json({ message: "Company not found for this recruiter" });
+            return;
+        }
+        const job = await prisma.job.findFirst({
+            where: {
+                job_id: jobId,
+                company_id: company.company_id,
+            },
+            select: {
+                job_id: true,
+                expiration_date: true,
+            },
+        });
+        if (!job) {
+            res.status(404).json({ message: "Job not found" });
+            return;
+        }
+        const application = await prisma.application.findFirst({
+            where: {
+                application_id: applicationId,
+                job_id: job.job_id,
+            },
+            select: {
+                application_id: true,
+                status: true,
+            },
+        });
+        if (!application) {
+            res.status(404).json({ message: "Application not found" });
+            return;
+        }
+        if (shouldExpireApplication(application.status, job.expiration_date)) {
+            const expiredApplication = await prisma.application.update({
+                where: { application_id: application.application_id },
+                data: { status: "expired" },
+                select: {
+                    application_id: true,
+                    status: true,
+                },
+            });
+            res.status(200).json({ application: expiredApplication });
+            return;
+        }
+        if (application.status === "pending") {
+            const updatedApplication = await prisma.application.update({
+                where: { application_id: application.application_id },
+                data: { status: "reviewing" },
+                select: {
+                    application_id: true,
+                    status: true,
+                },
+            });
+            res.status(200).json({ application: updatedApplication });
+            return;
+        }
+        res.status(200).json({ application });
+    }
+    catch (error) {
+        console.error("Mark application as reviewing error:", error);
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        res
+            .status(500)
+            .json({ message: "Internal server error", error: errorMessage });
+    }
+};
+export const updateApplicationDecision = async (req, res) => {
+    try {
+        await prisma.$connect();
+        const userId = parseUserId(req.params.userId);
+        const jobId = parseJobId(req.params.jobId);
+        const applicationId = parsePositiveInteger(req.params.applicationId);
+        const status = typeof req.body.status === "string"
+            ? req.body.status.trim().toLowerCase()
+            : "";
+        if (!userId) {
+            res.status(400).json({ message: "Invalid user id" });
+            return;
+        }
+        if (!jobId) {
+            res.status(400).json({ message: "Invalid job id" });
+            return;
+        }
+        if (!applicationId) {
+            res.status(400).json({ message: "Invalid application id" });
+            return;
+        }
+        if (status !== "accepted" && status !== "rejected") {
+            res.status(400).json({ message: "Status must be accepted or rejected" });
+            return;
+        }
+        const user = await prisma.user.findUnique({
+            where: { user_id: userId },
+            include: { role: true },
+        });
+        if (!user || user.role?.title?.toLowerCase() !== "recruiter") {
+            res.status(403).json({ message: "Access denied" });
+            return;
+        }
+        const company = await prisma.company.findFirst({
+            where: { user_id: userId },
+            select: { company_id: true },
+        });
+        if (!company) {
+            res.status(404).json({ message: "Company not found for this recruiter" });
+            return;
+        }
+        const job = await prisma.job.findFirst({
+            where: {
+                job_id: jobId,
+                company_id: company.company_id,
+            },
+            select: {
+                job_id: true,
+                expiration_date: true,
+            },
+        });
+        if (!job) {
+            res.status(404).json({ message: "Job not found" });
+            return;
+        }
+        const application = await prisma.application.findFirst({
+            where: {
+                application_id: applicationId,
+                job_id: job.job_id,
+            },
+            select: {
+                application_id: true,
+                status: true,
+            },
+        });
+        if (!application) {
+            res.status(404).json({ message: "Application not found" });
+            return;
+        }
+        if (shouldExpireApplication(application.status, job.expiration_date)) {
+            const expiredApplication = await prisma.application.update({
+                where: { application_id: application.application_id },
+                data: { status: "expired" },
+                select: {
+                    application_id: true,
+                    status: true,
+                },
+            });
+            res.status(200).json({ application: expiredApplication });
+            return;
+        }
+        const updatedApplication = await prisma.application.update({
+            where: { application_id: application.application_id },
+            data: { status },
+            select: {
+                application_id: true,
+                status: true,
+            },
+        });
+        res.status(200).json({ application: updatedApplication });
+    }
+    catch (error) {
+        console.error("Update application decision error:", error);
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        res
+            .status(500)
+            .json({ message: "Internal server error", error: errorMessage });
+    }
+};
+export const getRecruiterApplications = async (req, res) => {
+    try {
+        await prisma.$connect();
+        const userId = parseUserId(req.params.userId);
+        if (!userId) {
+            res.status(400).json({ message: "Invalid user id" });
+            return;
+        }
+        const user = await prisma.user.findUnique({
+            where: { user_id: userId },
+            include: { role: true },
+        });
+        if (!user || user.role?.title?.toLowerCase() !== "recruiter") {
+            res.status(403).json({ message: "Access denied" });
+            return;
+        }
+        const company = await prisma.company.findFirst({
+            where: { user_id: userId },
+            select: {
+                company_id: true,
+                name: true,
+            },
+        });
+        if (!company) {
+            res.status(404).json({ message: "Company not found for this recruiter" });
+            return;
+        }
+        const jobs = await prisma.job.findMany({
+            where: { company_id: company.company_id },
+            select: {
+                job_id: true,
+                title: true,
+                created_at: true,
+                expiration_date: true,
+            },
+            orderBy: { created_at: "desc" },
+        });
+        const expiredJobIds = jobs
+            .filter((job) => shouldExpireApplication("pending", job.expiration_date))
+            .map((job) => job.job_id);
+        if (expiredJobIds.length > 0) {
+            await prisma.application.updateMany({
+                where: {
+                    job_id: {
+                        in: expiredJobIds,
+                    },
+                    status: {
+                        in: ["pending", "reviewing"],
+                    },
+                },
+                data: { status: "expired" },
+            });
+        }
+        const jobLookup = new Map(jobs.map((job) => [job.job_id, job]));
+        const applications = jobs.length
+            ? await prisma.application.findMany({
+                where: {
+                    job_id: {
+                        in: jobs.map((job) => job.job_id),
+                    },
+                },
+                include: {
+                    candidate: {
+                        include: {
+                            city: true,
+                            user: true,
+                        },
+                    },
+                    resume: true,
+                    ai_evaluations: {
+                        orderBy: { created_at: "desc" },
+                        take: 1,
+                    },
+                },
+                orderBy: { created_at: "desc" },
+            })
+            : [];
+        const applicationsWithAvatars = await Promise.all(applications.map(async (application) => ({
+            application_id: application.application_id,
+            status: application.status,
+            created_at: application.created_at,
+            cover_letter: application.cover_letter || null,
+            job: {
+                job_id: application.job_id,
+                title: jobLookup.get(application.job_id)?.title ?? "Job",
+            },
+            ai_evaluation: application.ai_evaluations[0]
+                ? {
+                    score: application.ai_evaluations[0].score,
+                    matching_skills: application.ai_evaluations[0].matching_skills,
+                    missing_skills: application.ai_evaluations[0].missing_skills,
+                    summary: application.ai_evaluations[0].summary,
+                }
+                : null,
+            candidate: {
+                candidate_id: application.candidate.candidate_id,
+                full_name: application.candidate.full_name,
+                email: application.candidate.user?.email || "",
+                phone: application.candidate.phone || "",
+                location: application.candidate.city?.name || "N/A",
+                avatar_url: await formatAvatarUrl(application.candidate.avatar_url, application.candidate.user?.updated_at ?? application.created_at),
+            },
+            resume: {
+                resume_id: application.resume.resume_id,
+                name: application.resume.name,
+                file_url: application.resume.file_url,
+            },
+        })));
+        res.status(200).json({
+            company,
+            applications: applicationsWithAvatars,
+            total: applicationsWithAvatars.length,
+        });
+    }
+    catch (error) {
+        console.error("Get recruiter applications error:", error);
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        res
+            .status(500)
+            .json({ message: "Internal server error", error: errorMessage });
+    }
+};
 export const getRecruiterJobs = async (req, res) => {
     try {
         await prisma.$connect();
@@ -594,7 +986,7 @@ export const getRecruiterJobs = async (req, res) => {
             where: { user_id: userId },
             include: { role: true },
         });
-        if (!user || user.role_id !== ROLE_RECRUITER) {
+        if (!user || user.role?.title?.toLowerCase() !== "recruiter") {
             res.status(403).json({ message: "Access denied" });
             return;
         }
@@ -609,7 +1001,7 @@ export const getRecruiterJobs = async (req, res) => {
         const jobs = await prisma.job.findMany({
             where: { company_id: company.company_id },
             include: {
-                category: true,
+                jobCategory: true,
                 _count: {
                     select: { applications: true },
                 },
@@ -621,7 +1013,7 @@ export const getRecruiterJobs = async (req, res) => {
             title: job.title,
             status: job.status,
             created_at: job.created_at,
-            category: job.category?.title ?? "General",
+            category: job.jobCategory?.title ?? "General",
             applicants_count: job._count.applications,
             location: company.city?.name || company.address || "No location",
         }));
@@ -653,7 +1045,7 @@ export const createRecruiterJob = async (req, res) => {
             where: { user_id: userId },
             include: { role: true },
         });
-        if (!user || user.role_id !== ROLE_RECRUITER) {
+        if (!user || user.role?.title?.toLowerCase() !== "recruiter") {
             res.status(403).json({ message: "Access denied" });
             return;
         }
@@ -703,8 +1095,8 @@ export const createRecruiterJob = async (req, res) => {
             res.status(400).json({ message: "Salary minimum cannot exceed maximum" });
             return;
         }
-        const category = await prisma.category.findUnique({
-            where: { category_id: categoryId },
+        const category = await prisma.jobCategory.findUnique({
+            where: { job_category_id: categoryId },
         });
         if (!category) {
             res.status(404).json({ message: "Category not found" });
@@ -741,12 +1133,12 @@ export const createRecruiterJob = async (req, res) => {
                     salary_max: salaryMax,
                     benefits,
                     expiration_date: expirationDate,
-                    category_id: categoryId,
+                    job_category_id: categoryId,
                     company_id: company.company_id,
                     status: "open",
                 },
                 include: {
-                    category: true,
+                    jobCategory: true,
                     company: true,
                     job_skills: {
                         include: {
@@ -787,7 +1179,7 @@ export const createRecruiterJob = async (req, res) => {
                 return transaction.job.findUnique({
                     where: { job_id: createdJob.job_id },
                     include: {
-                        category: true,
+                        jobCategory: true,
                         company: true,
                         job_skills: {
                             include: {
@@ -861,7 +1253,7 @@ export const getRecruiterJobById = async (req, res) => {
             where: { user_id: userId },
             include: { role: true },
         });
-        if (!user || user.role_id !== ROLE_RECRUITER) {
+        if (!user || user.role?.title?.toLowerCase() !== "recruiter") {
             res.status(403).json({ message: "Access denied" });
             return;
         }
@@ -901,7 +1293,7 @@ export const getRecruiterJobById = async (req, res) => {
                 salary_max: job.salary_max,
                 benefits: job.benefits,
                 expiration_date: job.expiration_date,
-                category_id: job.category_id,
+                category_id: job.job_category_id,
                 skills: job.job_skills.map((item) => item.skill.name),
             },
         });
@@ -931,7 +1323,7 @@ export const updateRecruiterJob = async (req, res) => {
             where: { user_id: userId },
             include: { role: true },
         });
-        if (!user || user.role_id !== ROLE_RECRUITER) {
+        if (!user || user.role?.title?.toLowerCase() !== "recruiter") {
             res.status(403).json({ message: "Access denied" });
             return;
         }
@@ -993,8 +1385,8 @@ export const updateRecruiterJob = async (req, res) => {
             res.status(400).json({ message: "Salary minimum cannot exceed maximum" });
             return;
         }
-        const category = await prisma.category.findUnique({
-            where: { category_id: categoryId },
+        const category = await prisma.jobCategory.findUnique({
+            where: { job_category_id: categoryId },
         });
         if (!category) {
             res.status(404).json({ message: "Category not found" });
@@ -1032,7 +1424,7 @@ export const updateRecruiterJob = async (req, res) => {
                     salary_max: salaryMax,
                     benefits,
                     expiration_date: expirationDate,
-                    category_id: categoryId,
+                    job_category_id: categoryId,
                 },
             });
             await transaction.jobSkill.deleteMany({
@@ -1106,7 +1498,7 @@ export const deleteRecruiterJob = async (req, res) => {
             where: { user_id: userId },
             include: { role: true },
         });
-        if (!user || user.role_id !== ROLE_RECRUITER) {
+        if (!user || user.role?.title?.toLowerCase() !== "recruiter") {
             res.status(403).json({ message: "Access denied" });
             return;
         }
@@ -1153,6 +1545,63 @@ export const deleteRecruiterJob = async (req, res) => {
     }
     catch (error) {
         console.error("Delete recruiter job error:", error);
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        res
+            .status(500)
+            .json({ message: "Internal server error", error: errorMessage });
+    }
+};
+export const getApplicationResumeDownloadUrl = async (req, res) => {
+    try {
+        await prisma.$connect();
+        const jobId = parseJobId(req.params.jobId);
+        const applicationId = parsePositiveInteger(req.params.applicationId);
+        if (!jobId) {
+            res.status(400).json({ message: "Invalid job id" });
+            return;
+        }
+        if (!applicationId) {
+            res.status(400).json({ message: "Invalid application id" });
+            return;
+        }
+        const application = await prisma.application.findFirst({
+            where: {
+                application_id: applicationId,
+                job_id: jobId,
+            },
+            include: {
+                resume: true,
+                job: {
+                    select: {
+                        company_id: true,
+                    },
+                },
+            },
+        });
+        if (!application || !application.resume) {
+            res.status(404).json({ message: "Application or resume not found" });
+            return;
+        }
+        if (!application.resume.file_url) {
+            res.status(404).json({ message: "Resume file not found" });
+            return;
+        }
+        // Generate signed URL for 1 hour
+        const { data, error } = await supabaseAdmin.storage
+            .from(CV_BUCKET_NAME)
+            .createSignedUrl(application.resume.file_url, 3600);
+        if (error || !data?.signedUrl) {
+            console.error("Failed to generate signed URL:", error);
+            res.status(500).json({ message: "Failed to generate download URL" });
+            return;
+        }
+        res.status(200).json({
+            downloadUrl: data.signedUrl,
+            fileName: application.resume.name,
+        });
+    }
+    catch (error) {
+        console.error("Get application resume download URL error:", error);
         const errorMessage = error instanceof Error ? error.message : "Unknown error";
         res
             .status(500)

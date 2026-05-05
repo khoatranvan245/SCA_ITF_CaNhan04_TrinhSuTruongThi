@@ -78,6 +78,11 @@ ${params.jobRequirements || "No specific requirement provided"}
 Required Skills:
 ${skillNames.length > 0 ? skillNames.join(", ") : "No required skills provided"}
 
+Required Experience:
+${typeof params.jobExperienceYears === "number"
+        ? `${params.jobExperienceYears} years`
+        : "No specific experience requirement provided"}
+
 CV Text:
 ${params.cvText || "No CV text extracted"}
 
@@ -86,14 +91,23 @@ Return ONLY valid JSON with exactly this structure:
   "score": number, 
   "matchingSkills": [string],
   "missingSkills": [string],
-  "summary": string
+  "summary": string,
+  "candidateExperienceYears": number | null,
+  "experienceMatch": boolean,
+  "experienceGap": number | null
 }
 
 Rules:
 - score must be an integer from 0 to 100.
 - matchingSkills should include required skills clearly found in the CV.
 - missingSkills should include required skills not found in the CV.
-- summary should be short and practical, 1-2 sentences.
+- summary should be more detailed, 2-4 sentences.
+- summary must clearly state the CV's strengths and weaknesses.
+- summary should mention strengths in skills, experience, or relevance, and weaknesses such as missing skills, limited experience, or unclear details.
+- Keep the summary practical and recruiter-focused, without being overly verbose.
+- Infer candidateExperienceYears from the CV's work history, profile summary, or experience section.
+- If Required Experience is provided, compare it against candidateExperienceYears and set experienceMatch and experienceGap.
+- Lower the score if the candidate's experience is below the requirement.
 - Do not include markdown, backticks, or any extra text.`;
     if (!geminiClient) {
         console.error("Gemini API key is missing");
@@ -122,6 +136,13 @@ Rules:
                 summary: typeof parsed.summary === "string" && parsed.summary.trim()
                     ? parsed.summary.trim()
                     : "No summary available",
+                candidateExperienceYears: typeof parsed.candidateExperienceYears === "number"
+                    ? parsed.candidateExperienceYears
+                    : null,
+                experienceMatch: Boolean(parsed.experienceMatch),
+                experienceGap: typeof parsed.experienceGap === "number"
+                    ? parsed.experienceGap
+                    : null,
             };
         }
         catch (error) {
