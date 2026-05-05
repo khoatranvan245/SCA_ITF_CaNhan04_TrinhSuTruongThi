@@ -4,6 +4,7 @@ import {
   Route,
   Navigate,
   Outlet,
+  useLocation,
 } from "react-router-dom";
 import CandidateSignUp from "./pages/CandidateSignUp";
 import RecruiterSignUp from "./pages/RecruiterSignUp";
@@ -152,11 +153,18 @@ const CandidateSignUpRoute = () => {
 };
 
 const RecruiterHostRoute = () => {
+  const location = useLocation();
+
   if (!isRecruiterHost()) {
     return <Outlet />;
   }
 
   const role = getUserRole();
+
+  if (location.pathname === "/" && role === "recruiter") {
+    return <Navigate to="/job-management" replace />;
+  }
+
   if (role !== "recruiter") {
     return <Navigate to="/recruiter-login" replace />;
   }
