@@ -196,7 +196,7 @@ model City {
 enum JobStatus {
   open
   closed
-  pending
+  paused
   expired
 }
 

@@ -169,7 +169,7 @@ const HomeRoute = () => {
     const role = getUserRole();
 
     if (role === "admin") {
-      return <Navigate to="/admin/jobs" replace />;
+      return <Navigate to="/jobs" replace />;
     }
 
     return <Navigate to="/admin-login" replace />;
@@ -243,7 +243,7 @@ const AdminHostRoute = () => {
 
   if (role === "admin") {
     if (location.pathname === "/admin-login" || location.pathname === "/") {
-      return <Navigate to="/admin/jobs" replace />;
+      return <Navigate to="/jobs" replace />;
     }
 
     return <Outlet />;
@@ -265,13 +265,13 @@ const App = () => {
 
           <Route element={<AdminPrivateRoute />}>
             <Route element={<AdminLayout />}>
-              <Route path="/admin/company-management" element={<AdminJob />} />
-              <Route path="/admin/jobs" element={<AdminJob />} />
-              <Route path="/admin/account-management" element={<AdminJob />} />
-              <Route path="/admin/reports" element={<AdminJob />} />
+              <Route path="/company-management" element={<AdminJob />} />
+              <Route path="/jobs" element={<AdminJob />} />
+              <Route path="/account-management" element={<AdminJob />} />
+              <Route path="/reports" element={<AdminJob />} />
               <Route
-                path="/admin"
-                element={<Navigate to="/admin/jobs" replace />}
+                path="/"
+                element={<Navigate to="/jobs" replace />}
               />
             </Route>
           </Route>

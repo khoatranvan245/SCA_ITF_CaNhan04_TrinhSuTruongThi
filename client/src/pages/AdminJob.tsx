@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
 
-type AdminJobStatus = "open" | "pending" | "closed" | "expired";
+type AdminJobStatus = "open" | "paused" | "closed" | "expired";
 
 type AdminJob = {
   job_id: number;
@@ -17,23 +16,23 @@ type AdminJob = {
 };
 
 const statusLabelMap: Record<AdminJobStatus, string> = {
-  open: "Active",
-  pending: "Pending",
+  open: "Open",
+  paused: "Paused",
   closed: "Closed",
   expired: "Expired",
 };
 
 const statusBadgeMap: Record<AdminJobStatus, string> = {
   open: "bg-emerald-100 text-emerald-700",
-  pending: "bg-orange-100 text-orange-700",
+  paused: "bg-orange-100 text-orange-700",
   closed: "bg-slate-100 text-slate-700",
   expired: "bg-red-100 text-red-700",
 };
 
 const filters = [
   { label: "All Statuses", value: "all" },
-  { label: "Active", value: "open" },
-  { label: "Pending", value: "pending" },
+  { label: "Open", value: "open" },
+  { label: "Paused", value: "paused" },
   { label: "Closed", value: "closed" },
   { label: "Expired", value: "expired" },
 ] as const;
@@ -52,7 +51,6 @@ const formatDate = (value: string | null) => {
 };
 
 const AdminJob = () => {
-  const navigate = useNavigate();
   const [jobs, setJobs] = useState<AdminJob[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -60,6 +58,10 @@ const AdminJob = () => {
   const [industry, setIndustry] = useState("all");
   const [status, setStatus] = useState<AdminJobStatus | "all">("all");
   const [currentPage, setCurrentPage] = useState(1);
+  const [expandedJobId, setExpandedJobId] = useState<number | null>(null);
+  const [editingStatuses, setEditingStatuses] = useState<
+    Record<number, AdminJobStatus>
+  >({});
   const itemsPerPage = 6;
 
   useEffect(() => {
@@ -89,6 +91,77 @@ const AdminJob = () => {
 
     void fetchJobs();
   }, []);
+
+  const handleStatusChange = async (jobId: number, newStatus: string) => {
+    try {
+      const response = await fetch(
+        `http://localhost:3000/api/jobs/admin/${jobId}/status`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: newStatus }),
+        },
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(data.message || "Failed to update job status");
+        return;
+      }
+
+      // Update local job list
+      setJobs((prevJobs) =>
+        prevJobs.map((job) =>
+          job.job_id === jobId
+            ? { ...job, status: newStatus as AdminJobStatus }
+            : job,
+        ),
+      );
+
+      // Clear editing state
+      setEditingStatuses((prev) => {
+        const updated = { ...prev };
+        delete updated[jobId];
+        return updated;
+      });
+    } catch (error) {
+      console.error("Status update error:", error);
+      alert("An error occurred while updating job status");
+    }
+  };
+
+  const handleDeleteJob = async (jobId: number) => {
+    if (!window.confirm("Are you sure you want to delete this job?")) {
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `http://localhost:3000/api/jobs/admin/${jobId}`,
+        {
+          method: "DELETE",
+        },
+      );
+
+      if (!response.ok) {
+        const data = await response.json();
+        alert(data.message || "Failed to delete job");
+        return;
+      }
+
+      // Remove job from list
+      setJobs((prevJobs) => prevJobs.filter((job) => job.job_id !== jobId));
+      setExpandedJobId(null);
+    } catch (error) {
+      console.error("Delete job error:", error);
+      alert("An error occurred while deleting the job");
+    }
+  };
+
+  const toggleExpandRow = (jobId: number) => {
+    setExpandedJobId(expandedJobId === jobId ? null : jobId);
+  };
 
   const industries = useMemo(() => {
     return Array.from(new Set(jobs.map((job) => job.category))).sort((a, b) =>
@@ -129,7 +202,7 @@ const AdminJob = () => {
         accumulator[job.status] += 1;
         return accumulator;
       },
-      { total: 0, open: 0, pending: 0, closed: 0, expired: 0 },
+      { total: 0, open: 0, paused: 0, closed: 0, expired: 0 },
     );
   }, [jobs]);
 
@@ -147,7 +220,7 @@ const AdminJob = () => {
 
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
           <div className="rounded-2xl bg-white border border-[#e4e8f0] p-4 shadow-sm">
-            <div className="text-[0.65rem] uppercase tracking-[0.25em] text-[#8793a8] mb-2">
+            <div className="text-[0.65rem] uppercase text-[#8793a8] mb-2">
               Total Jobs
             </div>
             <div className="text-2xl font-extrabold text-[#0e1c35]">
@@ -155,23 +228,23 @@ const AdminJob = () => {
             </div>
           </div>
           <div className="rounded-2xl bg-white border border-[#e4e8f0] p-4 shadow-sm">
-            <div className="text-[0.65rem] uppercase tracking-[0.25em] text-[#8793a8] mb-2">
-              Active
+            <div className="text-[0.65rem] uppercase text-[#8793a8] mb-2">
+              Open
             </div>
             <div className="text-2xl font-extrabold text-emerald-700">
               {counts.open}
             </div>
           </div>
           <div className="rounded-2xl bg-white border border-[#e4e8f0] p-4 shadow-sm">
-            <div className="text-[0.65rem] uppercase tracking-[0.25em] text-[#8793a8] mb-2">
-              Pending
+            <div className="text-[0.65rem] uppercase text-[#8793a8] mb-2">
+              Paused
             </div>
             <div className="text-2xl font-extrabold text-orange-600">
-              {counts.pending}
+              {counts.paused}
             </div>
           </div>
           <div className="rounded-2xl bg-white border border-[#e4e8f0] p-4 shadow-sm">
-            <div className="text-[0.65rem] uppercase tracking-[0.25em] text-[#8793a8] mb-2">
+            <div className="text-[0.65rem] uppercase text-[#8793a8] mb-2">
               Closed
             </div>
             <div className="text-2xl font-extrabold text-slate-600">
@@ -179,7 +252,7 @@ const AdminJob = () => {
             </div>
           </div>
           <div className="rounded-2xl bg-white border border-[#e4e8f0] p-4 shadow-sm">
-            <div className="text-[0.65rem] uppercase tracking-[0.25em] text-[#8793a8] mb-2">
+            <div className="text-[0.65rem] uppercase text-[#8793a8] mb-2">
               Expired
             </div>
             <div className="text-2xl font-extrabold text-red-600">
@@ -209,7 +282,7 @@ const AdminJob = () => {
               </div>
 
               <div className="flex flex-wrap items-center gap-3">
-                <label className="text-[0.7rem] font-bold tracking-[0.2em] uppercase text-[#8793a8]">
+                <label className="text-[0.7rem] font-bold uppercase text-[#8793a8]">
                   Industry
                 </label>
                 <select
@@ -243,13 +316,13 @@ const AdminJob = () => {
 
           <div className="overflow-x-auto">
             <table className="w-full min-w-190">
-              <thead className="bg-[#f8fafc] text-[#8a96aa] text-[0.65rem] uppercase tracking-[0.22em] font-bold">
+              <thead className="bg-[#f8fafc] text-[#8a96aa] text-[0.65rem] uppercase font-bold">
                 <tr>
                   <th className="px-6 md:px-8 py-4 text-left">Job Title</th>
                   <th className="px-6 md:px-8 py-4 text-left">Company</th>
                   <th className="px-6 md:px-8 py-4 text-left">Posted Date</th>
                   <th className="px-6 md:px-8 py-4 text-left">Status</th>
-                  <th className="px-6 md:px-8 py-4 text-right">Action</th>
+                  <th className="px-6 md:px-8 py-4 text-right"></th>
                 </tr>
               </thead>
               <tbody>
@@ -282,69 +355,167 @@ const AdminJob = () => {
                   </tr>
                 ) : (
                   paginatedJobs.map((job) => (
-                    <tr
-                      key={job.job_id}
-                      className="border-t border-[#eef1f6] hover:bg-[#fafcff] transition-colors cursor-pointer"
-                      onClick={() => navigate(`/jobs/${job.job_id}`)}
-                    >
-                      <td className="px-6 md:px-8 py-5 align-middle">
-                        <div className="flex items-center gap-4">
-                          <div className="w-11 h-11 rounded-xl bg-[#edf3fb] flex items-center justify-center overflow-hidden shrink-0">
-                            {job.company_avatar_url ? (
-                              <img
-                                src={job.company_avatar_url}
-                                alt={job.company_name}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <span className="material-symbols-outlined text-[#6480aa]">
-                                work
-                              </span>
-                            )}
+                    <>
+                      <tr
+                        key={job.job_id}
+                        className="border-t border-[#eef1f6] hover:bg-[#fafcff] transition-colors cursor-pointer"
+                      >
+                        <td className="px-6 md:px-8 py-5 align-middle">
+                          <div className="flex items-center gap-4">
+                            <div className="w-11 h-11 rounded-xl bg-[#edf3fb] flex items-center justify-center overflow-hidden shrink-0">
+                              {job.company_avatar_url ? (
+                                <img
+                                  src={job.company_avatar_url}
+                                  alt={job.company_name}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <span className="material-symbols-outlined text-[#6480aa]">
+                                  work
+                                </span>
+                              )}
+                            </div>
+                            <div>
+                              <p className="font-semibold text-[#0e1c35]">
+                                {job.title}
+                              </p>
+                              <p className="text-xs text-[#8491a6]">
+                                ID: JB-{String(job.job_id).padStart(4, "0")}
+                              </p>
+                            </div>
                           </div>
+                        </td>
+                        <td className="px-6 md:px-8 py-5 text-[#4b5a72]">
                           <div>
-                            <p className="font-semibold text-[#0e1c35]">
-                              {job.title}
-                            </p>
+                            <p className="font-medium">{job.company_name}</p>
                             <p className="text-xs text-[#8491a6]">
-                              ID: JB-{String(job.job_id).padStart(4, "0")}
+                              {job.category}
                             </p>
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-6 md:px-8 py-5 text-[#4b5a72]">
-                        <div>
-                          <p className="font-medium">{job.company_name}</p>
-                          <p className="text-xs text-[#8491a6]">
-                            {job.category}
-                          </p>
-                        </div>
-                      </td>
-                      <td className="px-6 md:px-8 py-5 text-[#4b5a72]">
-                        {formatDate(job.created_at)}
-                      </td>
-                      <td className="px-6 md:px-8 py-5">
-                        <span
-                          className={`${statusBadgeMap[job.status]} inline-flex items-center px-3 py-1 rounded-full text-[0.65rem] font-bold uppercase tracking-[0.18em]`}
-                        >
-                          {statusLabelMap[job.status]}
-                        </span>
-                      </td>
-                      <td className="px-6 md:px-8 py-5 text-right">
-                        <button
-                          type="button"
-                          className="inline-flex items-center justify-center w-9 h-9 rounded-full hover:bg-[#eef3f9] text-[#60708b]"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            navigate(`/jobs/${job.job_id}`);
-                          }}
-                        >
-                          <span className="material-symbols-outlined text-[18px]">
-                            expand_more
+                        </td>
+                        <td className="px-6 md:px-8 py-5 text-[#4b5a72]">
+                          {formatDate(job.created_at)}
+                        </td>
+                        <td className="px-6 md:px-8 py-5">
+                          <span
+                            className={`${statusBadgeMap[job.status]} inline-flex items-center px-3 py-1 rounded-full text-[0.65rem] font-bold uppercase`}
+                          >
+                            {statusLabelMap[job.status]}
                           </span>
-                        </button>
-                      </td>
-                    </tr>
+                        </td>
+                        <td className="px-6 md:px-8 py-5 text-right">
+                          <button
+                            type="button"
+                            className="inline-flex items-center justify-center w-9 h-9 rounded-full hover:bg-[#eef3f9] text-[#60708b]"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              toggleExpandRow(job.job_id);
+                            }}
+                          >
+                            <span className="material-symbols-outlined text-[18px]">
+                              expand_more
+                            </span>
+                          </button>
+                        </td>
+                      </tr>
+                      {expandedJobId === job.job_id && (
+                        <tr className="border-t border-[#eef1f6] bg-[#f8fafc]">
+                          <td colSpan={5} className="px-6 md:px-8 py-6">
+                            <div className="space-y-6">
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                                <div>
+                                  <p className="text-xs font-bold uppercase text-[#8793a8] mb-2">
+                                    Expiration Date
+                                  </p>
+                                  <p className="text-sm font-semibold text-[#0e1c35]">
+                                    {formatDate(job.expiration_date)}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-xs font-bold uppercase text-[#8793a8] mb-2">
+                                    Applications
+                                  </p>
+                                  <p className="text-sm font-semibold text-[#0e1c35]">
+                                    {job.applicants_count}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-xs font-bold uppercase text-[#8793a8] mb-2">
+                                    Location
+                                  </p>
+                                  <p className="text-sm font-semibold text-[#0e1c35]">
+                                    {job.location}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-xs font-bold uppercase text-[#8793a8] mb-2">
+                                    Category
+                                  </p>
+                                  <p className="text-sm font-semibold text-[#0e1c35]">
+                                    {job.category}
+                                  </p>
+                                </div>
+                              </div>
+
+                              <div className="flex flex-col md:flex-row gap-4 items-start md:items-end">
+                                <div className="flex-1">
+                                  <label className="text-xs font-bold uppercase text-[#8793a8] mb-2 block">
+                                    Change Status
+                                  </label>
+                                  <div className="flex gap-2 items-center">
+                                    <select
+                                      className="flex-1 h-10 rounded-lg border border-[#e3e8f0] bg-white px-3 text-sm text-[#0e1c35] font-medium focus:outline-none focus:ring-2 focus:ring-[#b9cce8]"
+                                      value={
+                                        editingStatuses[job.job_id] ||
+                                        job.status
+                                      }
+                                      onChange={(e) => {
+                                        setEditingStatuses((prev) => ({
+                                          ...prev,
+                                          [job.job_id]: e.target
+                                            .value as AdminJobStatus,
+                                        }));
+                                      }}
+                                    >
+                                      <option value="open">Open</option>
+                                      <option value="paused">Paused</option>
+                                      <option value="closed">Closed</option>
+                                    </select>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const newStatus =
+                                          editingStatuses[job.job_id] ||
+                                          job.status;
+                                        if (newStatus !== job.status) {
+                                          void handleStatusChange(
+                                            job.job_id,
+                                            newStatus,
+                                          );
+                                        }
+                                      }}
+                                      className="px-4 py-2.5 rounded-lg bg-[#0d2446] text-white font-semibold hover:opacity-90 transition-colors whitespace-nowrap text-sm"
+                                    >
+                                      Save
+                                    </button>
+                                  </div>
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    void handleDeleteJob(job.job_id);
+                                  }}
+                                  className="px-4 py-2.5 rounded-lg bg-red-100 text-red-700 font-semibold hover:bg-red-200 transition-colors whitespace-nowrap text-sm"
+                                >
+                                  Delete Job
+                                </button>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </>
                   ))
                 )}
               </tbody>

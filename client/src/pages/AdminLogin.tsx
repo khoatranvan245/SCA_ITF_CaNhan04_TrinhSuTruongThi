@@ -58,7 +58,7 @@ const AdminLogin = () => {
       setPassword("");
 
       setTimeout(() => {
-        window.location.assign(buildAdminUrl("/admin/jobs"));
+        window.location.assign(buildAdminUrl("/jobs"));
       }, 1000);
     } catch (loginError) {
       setError("An error occurred. Please try again.");

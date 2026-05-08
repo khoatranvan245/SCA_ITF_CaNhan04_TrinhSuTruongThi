@@ -18,15 +18,15 @@ const menuItems: MenuItem[] = [
   {
     label: "Company Management",
     icon: "domain",
-    path: "/admin/company-management",
+    path: "/company-management",
   },
-  { label: "Job Management", icon: "work", path: "/admin/jobs" },
+  { label: "Job Management", icon: "work", path: "/jobs" },
   {
     label: "Account Management",
     icon: "person",
-    path: "/admin/account-management",
+    path: "/account-management",
   },
-  { label: "Reports", icon: "bar_chart", path: "/admin/reports" },
+  { label: "Reports", icon: "bar_chart", path: "/reports" },
 ];
 
 const AdminLayout = () => {

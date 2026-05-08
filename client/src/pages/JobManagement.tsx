@@ -12,7 +12,7 @@ type StoredUser = {
 type RecruiterJob = {
   job_id: number;
   title: string;
-  status: "open" | "closed" | "pending" | "expired";
+  status: "open" | "closed" | "paused" | "expired";
   created_at: string;
   category: string;
   applicants_count: number;
@@ -21,21 +21,21 @@ type RecruiterJob = {
 
 const statusBadgeClasses: Record<RecruiterJob["status"], string> = {
   open: "bg-green-100 text-green-800",
-  pending: "bg-orange-100 text-orange-800",
+  paused: "bg-orange-100 text-orange-800",
   closed: "bg-slate-200 text-slate-700",
   expired: "bg-red-100 text-red-800",
 };
 
 const statusDotClasses: Record<RecruiterJob["status"], string> = {
   open: "bg-green-500",
-  pending: "bg-orange-500",
+  paused: "bg-orange-500",
   closed: "bg-slate-500",
   expired: "bg-red-500",
 };
 
 const statusLabels: Record<RecruiterJob["status"], string> = {
-  open: "Active",
-  pending: "Pending",
+  open: "Open",
+  paused: "Paused",
   closed: "Closed",
   expired: "Expired",
 };
