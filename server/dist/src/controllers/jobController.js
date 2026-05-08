@@ -11,6 +11,16 @@ function shouldExpireApplication(status, expirationDate) {
     return (expirationDate.getTime() < Date.now() &&
         EXPIRABLE_APPLICATION_STATUSES.has(status.toLowerCase()));
 }
+function getEffectiveJobStatus(status, expirationDate) {
+    const normalizedStatus = status.toLowerCase();
+    if (expirationDate &&
+        expirationDate.getTime() < Date.now() &&
+        normalizedStatus !== "closed" &&
+        normalizedStatus !== "expired") {
+        return "expired";
+    }
+    return normalizedStatus;
+}
 function parseUserId(rawUserId) {
     const normalizedValue = Array.isArray(rawUserId) ? rawUserId[0] : rawUserId;
     const userId = Number(normalizedValue);
@@ -1027,6 +1037,155 @@ export const getRecruiterJobs = async (req, res) => {
     }
     catch (error) {
         console.error("Get recruiter jobs error:", error);
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        res
+            .status(500)
+            .json({ message: "Internal server error", error: errorMessage });
+    }
+};
+export const getAdminJobs = async (_req, res) => {
+    try {
+        await prisma.$connect();
+        const jobs = await prisma.job.findMany({
+            include: {
+                jobCategory: true,
+                company: {
+                    include: {
+                        city: true,
+                    },
+                },
+                _count: {
+                    select: {
+                        applications: true,
+                    },
+                },
+            },
+            orderBy: { created_at: "desc" },
+        });
+        const jobsWithDetails = await Promise.all(jobs.map(async (job) => ({
+            job_id: job.job_id,
+            title: job.title,
+            company_name: job.company.name,
+            company_avatar_url: await formatAvatarUrl(job.company.avatar_url, job.company.updated_at),
+            category: job.jobCategory?.title ?? "General",
+            location: job.company.city?.name || job.company.address || "Remote",
+            created_at: job.created_at,
+            expiration_date: job.expiration_date,
+            status: getEffectiveJobStatus(job.status, job.expiration_date),
+            applicants_count: job._count.applications,
+        })));
+        res.status(200).json({
+            jobs: jobsWithDetails,
+            total: jobsWithDetails.length,
+        });
+    }
+    catch (error) {
+        console.error("Get admin jobs error:", error);
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        res
+            .status(500)
+            .json({ message: "Internal server error", error: errorMessage });
+    }
+};
+export const updateAdminJobStatus = async (req, res) => {
+    try {
+        await prisma.$connect();
+        const jobId = parseJobId(req.params.jobId);
+        if (!jobId) {
+            res.status(400).json({ message: "Invalid job id" });
+            return;
+        }
+        const status = typeof req.body.status === "string"
+            ? req.body.status.trim().toLowerCase()
+            : "";
+        if (!new Set(["open", "paused", "closed", "expired"]).has(status)) {
+            res.status(400).json({ message: "Invalid job status" });
+            return;
+        }
+        const existingJob = await prisma.job.findUnique({
+            where: { job_id: jobId },
+            select: { job_id: true },
+        });
+        if (!existingJob) {
+            res.status(404).json({ message: "Job not found" });
+            return;
+        }
+        const updatedJob = await prisma.job.update({
+            where: { job_id: jobId },
+            data: { status },
+            select: {
+                job_id: true,
+                status: true,
+            },
+        });
+        res.status(200).json({
+            message: "Job status updated successfully",
+            job: updatedJob,
+        });
+    }
+    catch (error) {
+        console.error("Update admin job status error:", error);
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        res
+            .status(500)
+            .json({ message: "Internal server error", error: errorMessage });
+    }
+};
+export const deleteAdminJob = async (req, res) => {
+    try {
+        await prisma.$connect();
+        const jobId = parseJobId(req.params.jobId);
+        if (!jobId) {
+            res.status(400).json({ message: "Invalid job id" });
+            return;
+        }
+        const userId = parseOptionalInteger(req.body?.user_id);
+        if (userId !== null) {
+            const user = await prisma.user.findUnique({
+                where: { user_id: userId },
+                include: { role: true },
+            });
+            const roleTitle = user?.role?.title?.toLowerCase();
+            const isAdmin = roleTitle === "admin" ||
+                roleTitle === "super admin" ||
+                roleTitle === "system administrator";
+            if (!user || !isAdmin) {
+                res.status(403).json({ message: "Access denied" });
+                return;
+            }
+        }
+        const targetJob = await prisma.job.findUnique({
+            where: { job_id: jobId },
+            select: { job_id: true },
+        });
+        if (!targetJob) {
+            res.status(404).json({ message: "Job not found" });
+            return;
+        }
+        await prisma.$transaction(async (transaction) => {
+            await transaction.$executeRaw `
+        DELETE FROM "AIEvaluation"
+        WHERE "application_id" IN (
+          SELECT "application_id" FROM "Application" WHERE "job_id" = ${jobId}
+        )
+      `;
+            await transaction.jobSkill.deleteMany({
+                where: { job_id: jobId },
+            });
+            await transaction.application.deleteMany({
+                where: { job_id: jobId },
+            });
+            await transaction.job.delete({
+                where: { job_id: jobId },
+            });
+        });
+        res.status(200).json({
+            message: "Job deleted successfully",
+            deleted_job_id: jobId,
+        });
+    }
+    catch (error) {
+        console.error("Delete admin job error:", error);
         const errorMessage = error instanceof Error ? error.message : "Unknown error";
         res
             .status(500)

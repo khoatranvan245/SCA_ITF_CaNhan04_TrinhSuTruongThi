@@ -55,13 +55,15 @@ const AdminJob = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [industry, setIndustry] = useState("all");
+  const [category, setCategory] = useState("all");
   const [status, setStatus] = useState<AdminJobStatus | "all">("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [expandedJobId, setExpandedJobId] = useState<number | null>(null);
+  const [openStatusMenuId, setOpenStatusMenuId] = useState<number | null>(null);
   const [editingStatuses, setEditingStatuses] = useState<
     Record<number, AdminJobStatus>
   >({});
+  const [allCategories, setAllCategories] = useState<string[]>([]);
   const itemsPerPage = 6;
 
   useEffect(() => {
@@ -91,6 +93,48 @@ const AdminJob = () => {
 
     void fetchJobs();
   }, []);
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await fetch(
+          "http://localhost:3000/api/jobs/categories",
+        );
+        const data = await response.json();
+
+        if (response.ok && Array.isArray(data.categories)) {
+          const categoryTitles = data.categories.map(
+            (cat: { title: string }) => cat.title,
+          );
+          setAllCategories(categoryTitles);
+        }
+      } catch (error) {
+        console.error("Load categories error:", error);
+      }
+    };
+
+    void fetchCategories();
+  }, []);
+
+  useEffect(() => {
+    if (openStatusMenuId === null) {
+      return;
+    }
+
+    const handleDocumentMouseDown = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+
+      if (!target?.closest("[data-status-menu]")) {
+        setOpenStatusMenuId(null);
+      }
+    };
+
+    document.addEventListener("mousedown", handleDocumentMouseDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handleDocumentMouseDown);
+    };
+  }, [openStatusMenuId]);
 
   const handleStatusChange = async (jobId: number, newStatus: string) => {
     try {
@@ -160,20 +204,17 @@ const AdminJob = () => {
   };
 
   const toggleExpandRow = (jobId: number) => {
-    setExpandedJobId(expandedJobId === jobId ? null : jobId);
-  };
-
-  const industries = useMemo(() => {
-    return Array.from(new Set(jobs.map((job) => job.category))).sort((a, b) =>
-      a.localeCompare(b),
+    setExpandedJobId((currentExpandedJobId) =>
+      currentExpandedJobId === jobId ? null : jobId,
     );
-  }, [jobs]);
+    setOpenStatusMenuId(null);
+  };
 
   const filteredJobs = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
 
     return jobs.filter((job) => {
-      const matchesIndustry = industry === "all" || job.category === industry;
+      const matchesCategory = category === "all" || job.category === category;
       const matchesStatus = status === "all" || job.status === status;
       const matchesQuery =
         !query ||
@@ -182,13 +223,13 @@ const AdminJob = () => {
         job.category.toLowerCase().includes(query) ||
         job.location.toLowerCase().includes(query);
 
-      return matchesIndustry && matchesStatus && matchesQuery;
+      return matchesCategory && matchesStatus && matchesQuery;
     });
-  }, [industry, jobs, searchQuery, status]);
+  }, [category, jobs, searchQuery, status]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [industry, searchQuery, status]);
+  }, [category, searchQuery, status]);
 
   const totalPages = Math.max(1, Math.ceil(filteredJobs.length / itemsPerPage));
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -283,15 +324,15 @@ const AdminJob = () => {
 
               <div className="flex flex-wrap items-center gap-3">
                 <label className="text-[0.7rem] font-bold uppercase text-[#8793a8]">
-                  Industry
+                  Category
                 </label>
                 <select
                   className="h-11 rounded-xl border border-[#e3e8f0] bg-[#f6f8fc] px-4 text-sm text-[#0e1c35] focus:outline-none focus:ring-2 focus:ring-[#b9cce8]"
-                  value={industry}
-                  onChange={(event) => setIndustry(event.target.value)}
+                  value={category}
+                  onChange={(event) => setCategory(event.target.value)}
                 >
-                  <option value="all">All Industries</option>
-                  {industries.map((item) => (
+                  <option value="all">All Categories</option>
+                  {allCategories.map((item) => (
                     <option key={item} value={item}>
                       {item}
                     </option>
@@ -359,6 +400,7 @@ const AdminJob = () => {
                       <tr
                         key={job.job_id}
                         className="border-t border-[#eef1f6] hover:bg-[#fafcff] transition-colors cursor-pointer"
+                        onClick={() => toggleExpandRow(job.job_id)}
                       >
                         <td className="px-6 md:px-8 py-5 align-middle">
                           <div className="flex items-center gap-4">
@@ -413,7 +455,9 @@ const AdminJob = () => {
                             }}
                           >
                             <span className="material-symbols-outlined text-[18px]">
-                              expand_more
+                              {expandedJobId === job.job_id
+                                ? "expand_less"
+                                : "expand_more"}
                             </span>
                           </button>
                         </td>
@@ -463,24 +507,65 @@ const AdminJob = () => {
                                     Change Status
                                   </label>
                                   <div className="flex gap-2 items-center">
-                                    <select
-                                      className="flex-1 h-10 rounded-lg border border-[#e3e8f0] bg-white px-3 text-sm text-[#0e1c35] font-medium focus:outline-none focus:ring-2 focus:ring-[#b9cce8]"
-                                      value={
-                                        editingStatuses[job.job_id] ||
-                                        job.status
-                                      }
-                                      onChange={(e) => {
-                                        setEditingStatuses((prev) => ({
-                                          ...prev,
-                                          [job.job_id]: e.target
-                                            .value as AdminJobStatus,
-                                        }));
-                                      }}
+                                    <div
+                                      className="relative flex-1"
+                                      data-status-menu
                                     >
-                                      <option value="open">Open</option>
-                                      <option value="paused">Paused</option>
-                                      <option value="closed">Closed</option>
-                                    </select>
+                                      <button
+                                        type="button"
+                                        className="flex h-10 w-full items-center justify-between rounded-lg border border-[#e3e8f0] bg-white px-3 text-sm font-medium text-[#0e1c35] focus:outline-none focus:ring-2 focus:ring-[#b9cce8]"
+                                        onClick={(event) => {
+                                          event.stopPropagation();
+                                          setOpenStatusMenuId((current) =>
+                                            current === job.job_id
+                                              ? null
+                                              : job.job_id,
+                                          );
+                                        }}
+                                      >
+                                        <span>
+                                          {
+                                            statusLabelMap[
+                                              editingStatuses[job.job_id] ||
+                                                job.status
+                                            ]
+                                          }
+                                        </span>
+                                        <span className="material-symbols-outlined text-[18px] text-[#8090a6]">
+                                          {openStatusMenuId === job.job_id
+                                            ? "expand_less"
+                                            : "expand_more"}
+                                        </span>
+                                      </button>
+
+                                      {openStatusMenuId === job.job_id && (
+                                        <div className="absolute left-0 right-0 top-full z-20 mt-2 overflow-hidden rounded-lg border border-[#e3e8f0] bg-white shadow-lg">
+                                          {(
+                                            [
+                                              "open",
+                                              "paused",
+                                              "closed",
+                                            ] as AdminJobStatus[]
+                                          ).map((option) => (
+                                            <button
+                                              key={option}
+                                              type="button"
+                                              className="block w-full px-3 py-2 text-left text-sm text-[#0e1c35] hover:bg-[#eef3f9]"
+                                              onClick={(event) => {
+                                                event.stopPropagation();
+                                                setEditingStatuses((prev) => ({
+                                                  ...prev,
+                                                  [job.job_id]: option,
+                                                }));
+                                                setOpenStatusMenuId(null);
+                                              }}
+                                            >
+                                              {statusLabelMap[option]}
+                                            </button>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
                                     <button
                                       type="button"
                                       onClick={() => {

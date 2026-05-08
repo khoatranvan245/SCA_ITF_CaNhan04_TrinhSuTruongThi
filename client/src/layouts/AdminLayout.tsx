@@ -16,15 +16,15 @@ type MenuItem = {
 
 const menuItems: MenuItem[] = [
   {
-    label: "Company Management",
+    label: "Company",
     icon: "domain",
-    path: "/company-management",
+    path: "/companies",
   },
-  { label: "Job Management", icon: "work", path: "/jobs" },
+  { label: "Job", icon: "work", path: "/jobs" },
   {
-    label: "Account Management",
+    label: "Account",
     icon: "person",
-    path: "/account-management",
+    path: "/accounts",
   },
   { label: "Reports", icon: "bar_chart", path: "/reports" },
 ];

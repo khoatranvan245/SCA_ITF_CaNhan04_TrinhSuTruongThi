@@ -10,7 +10,7 @@
 export const JobStatus = {
     open: 'open',
     closed: 'closed',
-    pending: 'pending',
+    paused: 'paused',
     expired: 'expired'
 };
 export const ApplicationStatus = {

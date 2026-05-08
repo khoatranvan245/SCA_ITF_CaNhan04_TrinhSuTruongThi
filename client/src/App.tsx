@@ -269,10 +269,7 @@ const App = () => {
               <Route path="/jobs" element={<AdminJob />} />
               <Route path="/account-management" element={<AdminJob />} />
               <Route path="/reports" element={<AdminJob />} />
-              <Route
-                path="/"
-                element={<Navigate to="/jobs" replace />}
-              />
+              <Route path="/" element={<Navigate to="/jobs" replace />} />
             </Route>
           </Route>
           <Route element={<RecruiterHostRoute />}>
