@@ -6,6 +6,7 @@ const ROLE_CANDIDATE = 1;
 const ROLE_RECRUITER = 2;
 const ROLE_CANDIDATE_TITLE = "candidate";
 const ROLE_RECRUITER_TITLE = "recruiter";
+const ROLE_ADMIN_TITLES = ["admin", "super admin", "system administrator"];
 
 // Hash password function
 function hashPassword(password: string): string {
@@ -175,8 +176,7 @@ export const recruiterSignup = async (req: Request, res: Response) => {
     // Ensure connection is established
     await prisma.$connect();
 
-    const { email, password, confirmPassword, companyName, cityId } =
-      req.body;
+    const { email, password, confirmPassword, companyName, cityId } = req.body;
 
     // Validate basic fields
     const validationError = validateBasicFields(
@@ -366,4 +366,60 @@ export const candidateLogin = async (req: Request, res: Response) => {
 // Recruiter Login controller
 export const recruiterLogin = async (req: Request, res: Response) => {
   await loginByRole(req, res, ROLE_RECRUITER, "recruiter");
+};
+
+// Admin Login controller
+export const adminLogin = async (req: Request, res: Response) => {
+  try {
+    await prisma.$connect();
+
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      res.status(400).json({ message: "Email and password are required" });
+      return;
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email },
+      include: {
+        role: true,
+      },
+    });
+
+    if (!user) {
+      res.status(401).json({ message: "Invalid email or password" });
+      return;
+    }
+
+    const passwordHash = hashPassword(password);
+    if (user.password_hash !== passwordHash) {
+      res.status(401).json({ message: "Invalid email or password" });
+      return;
+    }
+
+    const roleTitle = user.role?.title?.toLowerCase();
+    if (!roleTitle || !ROLE_ADMIN_TITLES.includes(roleTitle)) {
+      res.status(403).json({ message: "Invalid email or password" });
+      return;
+    }
+
+    res.status(200).json({
+      message: "Login successful",
+      user: {
+        user_id: user.user_id,
+        email: user.email,
+        role: user.role,
+        full_name: null,
+      },
+    });
+  } catch (error) {
+    console.error("Admin login error:", error);
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
+    console.error("Error details:", errorMessage);
+    res
+      .status(500)
+      .json({ message: "Internal server error", error: errorMessage });
+  }
 };

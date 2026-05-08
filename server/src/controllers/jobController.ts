@@ -24,6 +24,24 @@ function shouldExpireApplication(
   );
 }
 
+function getEffectiveJobStatus(
+  status: string,
+  expirationDate: Date | null | undefined,
+): string {
+  const normalizedStatus = status.toLowerCase();
+
+  if (
+    expirationDate &&
+    expirationDate.getTime() < Date.now() &&
+    normalizedStatus !== "closed" &&
+    normalizedStatus !== "expired"
+  ) {
+    return "expired";
+  }
+
+  return normalizedStatus;
+}
+
 function parseUserId(rawUserId: string | string[] | undefined): number | null {
   const normalizedValue = Array.isArray(rawUserId) ? rawUserId[0] : rawUserId;
   const userId = Number(normalizedValue);
@@ -1229,6 +1247,59 @@ export const getRecruiterJobs = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error("Get recruiter jobs error:", error);
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
+    res
+      .status(500)
+      .json({ message: "Internal server error", error: errorMessage });
+  }
+};
+
+export const getAdminJobs = async (_req: Request, res: Response) => {
+  try {
+    await prisma.$connect();
+
+    const jobs = await prisma.job.findMany({
+      include: {
+        jobCategory: true,
+        company: {
+          include: {
+            city: true,
+          },
+        },
+        _count: {
+          select: {
+            applications: true,
+          },
+        },
+      },
+      orderBy: { created_at: "desc" },
+    });
+
+    const jobsWithDetails = await Promise.all(
+      jobs.map(async (job) => ({
+        job_id: job.job_id,
+        title: job.title,
+        company_name: job.company.name,
+        company_avatar_url: await formatAvatarUrl(
+          job.company.avatar_url,
+          job.company.updated_at,
+        ),
+        category: job.jobCategory?.title ?? "General",
+        location: job.company.city?.name || job.company.address || "Remote",
+        created_at: job.created_at,
+        expiration_date: job.expiration_date,
+        status: getEffectiveJobStatus(job.status, job.expiration_date),
+        applicants_count: job._count.applications,
+      })),
+    );
+
+    res.status(200).json({
+      jobs: jobsWithDetails,
+      total: jobsWithDetails.length,
+    });
+  } catch (error) {
+    console.error("Get admin jobs error:", error);
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error";
     res

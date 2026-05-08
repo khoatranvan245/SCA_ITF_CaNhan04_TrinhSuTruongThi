@@ -16,6 +16,7 @@ import { updateRecruiterJob } from "../controllers/jobController";
 import { markApplicationAsReviewing } from "../controllers/jobController";
 import { updateApplicationDecision } from "../controllers/jobController";
 import { getApplicationResumeDownloadUrl } from "../controllers/jobController";
+import { getAdminJobs } from "../controllers/jobController";
 
 const router = express.Router();
 
@@ -29,6 +30,7 @@ router.get(
   "/:jobId/applications/:applicationId/resume/download-url",
   getApplicationResumeDownloadUrl,
 );
+router.get("/admin/jobs", getAdminJobs);
 router.get("/recruiter/:userId/applications", getRecruiterApplications);
 router.patch(
   "/recruiter/:userId/jobs/:jobId/applications/:applicationId/reviewing",

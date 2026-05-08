@@ -14,7 +14,8 @@
     "seed:company-categories": "tsx prisma/seed-company-categories.ts",
     "seed:job-categories": "tsx prisma/seed-job-categories.ts",
     "seed:skills": "tsx prisma/seed-skills.ts",
-    "seed:jobs": "tsx prisma/seed-jobs.ts"
+    "seed:jobs": "tsx prisma/seed-jobs.ts",
+    "seed:admin": "tsx prisma/seed-admin.ts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
