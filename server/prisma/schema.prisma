@@ -24,12 +24,13 @@ model Role {
 }
 
 model User {
-  user_id       Int      @id @default(autoincrement())
-  email         String   @unique
+  user_id       Int           @id @default(autoincrement())
+  email         String        @unique
   password_hash String
   role_id       Int
-  created_at    DateTime @default(now())
-  updated_at    DateTime @updatedAt
+  status        AccountStatus @default(active)
+  created_at    DateTime      @default(now())
+  updated_at    DateTime      @updatedAt
 
   role       Role        @relation(fields: [role_id], references: [role_id])
   companies  Company[]
@@ -198,6 +199,11 @@ enum JobStatus {
   closed
   paused
   expired
+}
+
+enum AccountStatus {
+  active
+  suspended
 }
 
 enum ApplicationStatus {

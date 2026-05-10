@@ -4,7 +4,6 @@ import {
   Route,
   Navigate,
   Outlet,
-  useLocation,
 } from "react-router-dom";
 import CandidateSignUp from "./pages/CandidateSignUp";
 import RecruiterSignUp from "./pages/RecruiterSignUp";
@@ -26,6 +25,7 @@ import PublicLayout from "./layouts/PublicLayout";
 import RecruiterLayout from "./layouts/RecruiterLayout";
 import AdminLayout from "./layouts/AdminLayout";
 import AdminJob from "./pages/AdminJob";
+import AdminAccount from "./pages/AdminAccount";
 import AdminLogin from "./pages/AdminLogin";
 
 type StoredUser = {
@@ -135,7 +135,6 @@ const CandidatePrivateRoute = () => {
 };
 
 const PublicOnlyRoute = () => {
-  // Child routes decide whether to redirect based on role.
   return <Outlet />;
 };
 
@@ -212,107 +211,75 @@ const CandidateSignUpRoute = () => {
   return <CandidateSignUp />;
 };
 
-const RecruiterHostRoute = () => {
-  const location = useLocation();
-
-  if (!isRecruiterHost()) {
-    return <Outlet />;
-  }
-
-  const role = getUserRole();
-
-  if (location.pathname === "/" && role === "recruiter") {
-    return <Navigate to="/job-management" replace />;
-  }
-
-  if (role !== "recruiter") {
-    return <Navigate to="/recruiter-login" replace />;
-  }
-
-  return <Outlet />;
-};
-
-const AdminHostRoute = () => {
-  const location = useLocation();
-
+const AdminLoginRoute = () => {
   if (!isAdminHost()) {
-    return <Outlet />;
+    return <Navigate to="/" replace />;
   }
 
   const role = getUserRole();
 
   if (role === "admin") {
-    if (location.pathname === "/admin-login" || location.pathname === "/") {
-      return <Navigate to="/jobs" replace />;
-    }
-
-    return <Outlet />;
+    return <Navigate to="/jobs" replace />;
   }
 
-  if (location.pathname === "/admin-login") {
-    return <Outlet />;
-  }
-
-  return <Navigate to="/admin-login" replace />;
+  return <AdminLogin />;
 };
 
 const App = () => {
   return (
     <BrowserRouter>
       <Routes>
-        <Route element={<AdminHostRoute />}>
-          <Route path="/admin-login" element={<AdminLogin />} />
-
-          <Route element={<AdminPrivateRoute />}>
-            <Route element={<AdminLayout />}>
-              <Route path="/company-management" element={<AdminJob />} />
-              <Route path="/jobs" element={<AdminJob />} />
-              <Route path="/account-management" element={<AdminJob />} />
-              <Route path="/reports" element={<AdminJob />} />
-              <Route path="/" element={<Navigate to="/jobs" replace />} />
-            </Route>
+        {/* Admin routes - ONLY accessible on admin.localhost */}
+        <Route path="/admin-login" element={<AdminLoginRoute />} />
+        <Route element={<AdminPrivateRoute />}>
+          <Route element={<AdminLayout />}>
+            <Route path="/company-management" element={<AdminJob />} />
+            <Route path="/jobs" element={<AdminJob />} />
+            <Route path="/accounts" element={<AdminAccount />} />
+            <Route path="/account-management" element={<AdminAccount />} />
+            <Route path="/reports" element={<AdminJob />} />
           </Route>
-          <Route element={<RecruiterHostRoute />}>
-            <Route element={<PublicLayout />}>
-              <Route path="/" element={<HomeRoute />} />
-              <Route path="/job-listing" element={<JobListing />} />
-              <Route path="/company-listing" element={<CompanyListing />} />
-              <Route path="/companies/:companyId" element={<CompanyDetail />} />
-              <Route path="/jobs/:jobId" element={<JobDetail />} />
+        </Route>
 
-              <Route element={<CandidatePrivateRoute />}>
-                <Route
-                  path="/candidate-profile"
-                  element={<CandidateProfile />}
-                />
-                <Route
-                  path="/candidate-applications"
-                  element={<CandidateApplications />}
-                />
-              </Route>
-            </Route>
+        {/* Public and recruiter routes - accessible on all hosts */}
+        <Route element={<PublicLayout />}>
+          <Route path="/" element={<HomeRoute />} />
+          <Route path="/job-listing" element={<JobListing />} />
+          <Route path="/company-listing" element={<CompanyListing />} />
+          <Route path="/companies/:companyId" element={<CompanyDetail />} />
+          <Route path="/jobs/:jobId" element={<JobDetail />} />
 
-            <Route element={<RecruiterPrivateRoute />}>
-              <Route element={<RecruiterLayout />}>
-                <Route path="/company-profile" element={<CompanyProfile />} />
-                <Route
-                  path="/application-management"
-                  element={<ApplicationManagement />}
-                />
-                <Route
-                  path="/application-management/:jobId"
-                  element={<ApplicationManagement />}
-                />
-                <Route
-                  path="/application-management/:jobId/:applicationId"
-                  element={<ApplicationDetail />}
-                />
-                <Route path="/job-management" element={<Outlet />}>
-                  <Route index element={<JobManagement />} />
-                  <Route path="post" element={<JobPost />} />
-                  <Route path="edit/:jobId" element={<JobEdit />} />
-                </Route>
-              </Route>
+          <Route element={<CandidatePrivateRoute />}>
+            <Route
+              path="/candidate-profile"
+              element={<CandidateProfile />}
+            />
+            <Route
+              path="/candidate-applications"
+              element={<CandidateApplications />}
+            />
+          </Route>
+        </Route>
+
+        <Route element={<RecruiterPrivateRoute />}>
+          <Route element={<RecruiterLayout />}>
+            <Route path="/company-profile" element={<CompanyProfile />} />
+            <Route
+              path="/application-management"
+              element={<ApplicationManagement />}
+            />
+            <Route
+              path="/application-management/:jobId"
+              element={<ApplicationManagement />}
+            />
+            <Route
+              path="/application-management/:jobId/:applicationId"
+              element={<ApplicationDetail />}
+            />
+            <Route path="/job-management" element={<Outlet />}>
+              <Route index element={<JobManagement />} />
+              <Route path="post" element={<JobPost />} />
+              <Route path="edit/:jobId" element={<JobEdit />} />
             </Route>
           </Route>
         </Route>

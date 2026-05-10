@@ -13,6 +13,10 @@ export const JobStatus = {
     paused: 'paused',
     expired: 'expired'
 };
+export const AccountStatus = {
+    active: 'active',
+    suspended: 'suspended'
+};
 export const ApplicationStatus = {
     pending: 'pending',
     reviewing: 'reviewing',
