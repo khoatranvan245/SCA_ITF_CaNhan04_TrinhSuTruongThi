@@ -826,6 +826,7 @@ export const updateApplicationDecision = async (req, res) => {
             select: {
                 application_id: true,
                 status: true,
+                candidate_id: true,
             },
         });
         if (!application) {
@@ -844,12 +845,57 @@ export const updateApplicationDecision = async (req, res) => {
             res.status(200).json({ application: expiredApplication });
             return;
         }
+        // Fetch job and company details for notification
+        const jobDetails = await prisma.job.findUnique({
+            where: { job_id: jobId },
+            select: {
+                title: true,
+                company_id: true,
+            },
+        });
+        if (!jobDetails) {
+            res.status(404).json({ message: "Job details not found" });
+            return;
+        }
+        const companyDetails = await prisma.company.findUnique({
+            where: { company_id: jobDetails.company_id },
+            select: { name: true },
+        });
+        if (!companyDetails) {
+            res.status(404).json({ message: "Company details not found" });
+            return;
+        }
+        // Fetch candidate user_id
+        const candidate = await prisma.candidate.findUnique({
+            where: { candidate_id: application.candidate_id },
+            select: { user_id: true },
+        });
+        if (!candidate) {
+            res.status(404).json({ message: "Candidate not found" });
+            return;
+        }
         const updatedApplication = await prisma.application.update({
             where: { application_id: application.application_id },
             data: { status },
             select: {
                 application_id: true,
                 status: true,
+            },
+        });
+        // Create notification for candidate
+        const notificationTitle = status === "accepted" ? "Application Accepted" : "Application Declined";
+        const notificationMessage = status === "accepted"
+            ? `Good news! You have passed the application screening for the position of "${jobDetails.title}" at ${companyDetails.name}. Please check your email or messages regularly for further updates from the recruiter.`
+            : `Your application for the position of "${jobDetails.title}" at ${companyDetails.name} has been declined. Thank you for your interest in joining the company.`;
+        await prisma.notification.create({
+            data: {
+                user_id: candidate.user_id,
+                application_id: application.application_id,
+                type: status === "accepted" ? "accepted" : "rejected",
+                title: notificationTitle,
+                message: notificationMessage,
+                job_title: jobDetails.title,
+                company_name: companyDetails.name,
             },
         });
         res.status(200).json({ application: updatedApplication });

@@ -329,12 +329,10 @@ export const deleteAdminAccount = async (req: Request, res: Response) => {
       await transaction.user.delete({ where: { user_id: userId } });
     });
 
-    res
-      .status(200)
-      .json({
-        message: "Account deleted successfully",
-        deleted_user_id: userId,
-      });
+    res.status(200).json({
+      message: "Account deleted successfully",
+      deleted_user_id: userId,
+    });
   } catch (error) {
     console.error("Delete admin account error:", error);
     const errorMessage =
@@ -390,7 +388,10 @@ export const getAdminCompanies = async (_req: Request, res: Response) => {
         name: company.name,
         description: company.description,
         website: company.website,
-        avatar_url: await formatAvatarUrl(company.avatar_url, company.updated_at),
+        avatar_url: await formatAvatarUrl(
+          company.avatar_url,
+          company.updated_at,
+        ),
         user_email: company.user?.email ?? "Unknown",
         user_role: company.user?.role?.title ?? "Unknown",
         user_status: company.user?.status ?? "active",
@@ -409,7 +410,8 @@ export const getAdminCompanies = async (_req: Request, res: Response) => {
     });
   } catch (error) {
     console.error("Get admin companies error:", error);
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
     res
       .status(500)
       .json({ message: "Internal server error", error: errorMessage });
@@ -420,29 +422,35 @@ export const getAdminStatistics = async (_req: Request, res: Response) => {
   try {
     await prisma.$connect();
 
-    const [users, companies, jobs, applications, candidates] = await Promise.all([
-      prisma.user.findMany({
-        include: {
-          role: {
-            select: { title: true },
+    const [users, companies, jobs, applications, candidates] =
+      await Promise.all([
+        prisma.user.findMany({
+          include: {
+            role: {
+              select: { title: true },
+            },
           },
-        },
-      }),
-      prisma.company.count(),
-      prisma.job.findMany({
-        select: { status: true },
-      }),
-      prisma.application.findMany({
-        select: { status: true },
-      }),
-      prisma.candidate.count(),
-    ]);
+        }),
+        prisma.company.count(),
+        prisma.job.findMany({
+          select: { status: true },
+        }),
+        prisma.application.findMany({
+          select: { status: true },
+        }),
+        prisma.candidate.count(),
+      ]);
 
     // Count users by role
     const usersByRole = {
-      admin: users.filter((u) => u.role?.title?.toLowerCase().includes("admin")).length,
-      recruiter: users.filter((u) => u.role?.title?.toLowerCase().includes("recruiter")).length,
-      candidate: users.filter((u) => u.role?.title?.toLowerCase().includes("candidate")).length,
+      admin: users.filter((u) => u.role?.title?.toLowerCase().includes("admin"))
+        .length,
+      recruiter: users.filter((u) =>
+        u.role?.title?.toLowerCase().includes("recruiter"),
+      ).length,
+      candidate: users.filter((u) =>
+        u.role?.title?.toLowerCase().includes("candidate"),
+      ).length,
       total: users.length,
     };
 
@@ -482,7 +490,8 @@ export const getAdminStatistics = async (_req: Request, res: Response) => {
     });
   } catch (error) {
     console.error("Get admin statistics error:", error);
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
     res
       .status(500)
       .json({ message: "Internal server error", error: errorMessage });

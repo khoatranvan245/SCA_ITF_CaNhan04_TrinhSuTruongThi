@@ -253,10 +253,7 @@ const App = () => {
           <Route path="/jobs/:jobId" element={<JobDetail />} />
 
           <Route element={<CandidatePrivateRoute />}>
-            <Route
-              path="/candidate-profile"
-              element={<CandidateProfile />}
-            />
+            <Route path="/candidate-profile" element={<CandidateProfile />} />
             <Route
               path="/candidate-applications"
               element={<CandidateApplications />}

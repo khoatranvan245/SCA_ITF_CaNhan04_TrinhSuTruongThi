@@ -35,11 +35,13 @@ const AdminCompany = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "suspended">(
-    "all",
-  );
+  const [statusFilter, setStatusFilter] = useState<
+    "all" | "active" | "suspended"
+  >("all");
   const [currentPage, setCurrentPage] = useState(1);
-  const [expandedCompanyId, setExpandedCompanyId] = useState<number | null>(null);
+  const [expandedCompanyId, setExpandedCompanyId] = useState<number | null>(
+    null,
+  );
   const itemsPerPage = 6;
 
   useEffect(() => {
@@ -96,7 +98,7 @@ const AdminCompany = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, statusFilter])
+  }, [searchQuery, statusFilter]);
 
   const totalPages = Math.max(
     1,
@@ -400,7 +402,11 @@ const AdminCompany = () => {
                                   Website
                                 </p>
                                 <p className="text-sm text-blue-600 hover:underline">
-                                  <a href={company.website} target="_blank" rel="noopener noreferrer">
+                                  <a
+                                    href={company.website}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                  >
                                     {company.website}
                                   </a>
                                 </p>

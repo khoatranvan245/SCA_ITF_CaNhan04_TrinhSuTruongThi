@@ -24,3 +24,7 @@ export const ApplicationStatus = {
     accepted: 'accepted',
     expired: 'expired'
 };
+export const NotificationType = {
+    accepted: 'accepted',
+    rejected: 'rejected'
+};

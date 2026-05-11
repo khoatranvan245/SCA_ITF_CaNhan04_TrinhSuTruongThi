@@ -108,7 +108,9 @@ const AdminReports = () => {
     return (
       <main className="px-6 md:px-8 py-8 md:py-10">
         <div className="max-w-7xl mx-auto">
-          <p className="text-center text-red-600">{error || "No data available."}</p>
+          <p className="text-center text-red-600">
+            {error || "No data available."}
+          </p>
         </div>
       </main>
     );
@@ -168,15 +170,11 @@ const AdminReports = () => {
             <h3 className="text-lg font-bold text-[#0e1c35] mb-6">
               Users by Role
             </h3>
-            {renderBarChart(
-              statistics.users,
-              statistics.users.total,
-              {
-                admin: "bg-purple-600",
-                recruiter: "bg-blue-600",
-                candidate: "bg-emerald-600",
-              },
-            )}
+            {renderBarChart(statistics.users, statistics.users.total, {
+              admin: "bg-purple-600",
+              recruiter: "bg-blue-600",
+              candidate: "bg-emerald-600",
+            })}
           </div>
 
           {/* User Status */}
@@ -217,16 +215,12 @@ const AdminReports = () => {
             <h3 className="text-lg font-bold text-[#0e1c35] mb-6">
               Jobs by Status
             </h3>
-            {renderBarChart(
-              statistics.jobs,
-              statistics.jobs.total,
-              {
-                open: "bg-emerald-600",
-                paused: "bg-yellow-600",
-                closed: "bg-red-600",
-                expired: "bg-gray-600",
-              },
-            )}
+            {renderBarChart(statistics.jobs, statistics.jobs.total, {
+              open: "bg-emerald-600",
+              paused: "bg-yellow-600",
+              closed: "bg-red-600",
+              expired: "bg-gray-600",
+            })}
           </div>
 
           {/* Applications by Status */}

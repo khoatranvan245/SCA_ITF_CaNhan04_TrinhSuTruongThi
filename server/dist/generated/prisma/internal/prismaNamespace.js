@@ -80,7 +80,8 @@ export const ModelName = {
     Skill: 'Skill',
     JobSkill: 'JobSkill',
     CandidateSkill: 'CandidateSkill',
-    City: 'City'
+    City: 'City',
+    Notification: 'Notification'
 };
 /**
  * Enums
@@ -201,6 +202,19 @@ export const CityScalarFieldEnum = {
     city_id: 'city_id',
     name: 'name',
     created_at: 'created_at'
+};
+export const NotificationScalarFieldEnum = {
+    notification_id: 'notification_id',
+    user_id: 'user_id',
+    application_id: 'application_id',
+    type: 'type',
+    title: 'title',
+    message: 'message',
+    job_title: 'job_title',
+    company_name: 'company_name',
+    is_read: 'is_read',
+    created_at: 'created_at',
+    read_at: 'read_at'
 };
 export const SortOrder = {
     asc: 'asc',
