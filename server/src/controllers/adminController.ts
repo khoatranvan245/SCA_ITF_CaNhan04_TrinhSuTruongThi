@@ -1,5 +1,78 @@
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
+import { supabaseAdmin } from "../lib/supabaseAdmin";
+
+const AVATAR_BUCKET_NAME = "Avatar";
+
+function extractAvatarPath(avatarUrl: string): string | null {
+  if (!avatarUrl) {
+    return null;
+  }
+
+  const trimmed = avatarUrl.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  if (!trimmed.startsWith("http")) {
+    return trimmed.replace(/^\/+/, "");
+  }
+
+  try {
+    const parsed = new URL(trimmed);
+    const marker = `/${AVATAR_BUCKET_NAME}/`;
+    const markerIndex = parsed.pathname.indexOf(marker);
+
+    if (markerIndex === -1) {
+      return null;
+    }
+
+    const objectPath = parsed.pathname.slice(markerIndex + marker.length);
+    return decodeURIComponent(objectPath).replace(/^\/+/, "");
+  } catch {
+    return null;
+  }
+}
+
+function appendVersionParam(
+  avatarUrl: string | null | undefined,
+  updatedAt: Date,
+): string | null {
+  if (!avatarUrl) {
+    return null;
+  }
+
+  try {
+    const parsed = new URL(avatarUrl);
+    parsed.searchParams.set("v", String(updatedAt.getTime()));
+    return parsed.toString();
+  } catch {
+    return `${avatarUrl}?v=${updatedAt.getTime()}`;
+  }
+}
+
+async function formatAvatarUrl(
+  avatarUrl: string | null | undefined,
+  updatedAt: Date,
+): Promise<string | null> {
+  if (!avatarUrl) {
+    return null;
+  }
+
+  const avatarPath = extractAvatarPath(avatarUrl);
+
+  if (avatarPath) {
+    const { data, error } = await supabaseAdmin.storage
+      .from(AVATAR_BUCKET_NAME)
+      .createSignedUrl(avatarPath, 60 * 60 * 24 * 7);
+
+    if (!error && data?.signedUrl) {
+      return appendVersionParam(data.signedUrl, updatedAt);
+    }
+  }
+
+  return appendVersionParam(avatarUrl, updatedAt);
+}
 
 export const getAdminAccounts = async (_req: Request, res: Response) => {
   try {
@@ -266,6 +339,150 @@ export const deleteAdminAccount = async (req: Request, res: Response) => {
     console.error("Delete admin account error:", error);
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error";
+    res
+      .status(500)
+      .json({ message: "Internal server error", error: errorMessage });
+  }
+};
+
+export const getAdminCompanies = async (_req: Request, res: Response) => {
+  try {
+    await prisma.$connect();
+
+    const companies = await prisma.company.findMany({
+      include: {
+        user: {
+          select: {
+            user_id: true,
+            email: true,
+            status: true,
+            role: {
+              select: {
+                title: true,
+              },
+            },
+          },
+        },
+        companyCategory: {
+          select: {
+            company_category_id: true,
+            title: true,
+          },
+        },
+        city: {
+          select: {
+            city_id: true,
+            name: true,
+          },
+        },
+        _count: {
+          select: {
+            jobs: true,
+          },
+        },
+      },
+      orderBy: { created_at: "desc" },
+    });
+
+    const companiesData = await Promise.all(
+      companies.map(async (company) => ({
+        company_id: company.company_id,
+        name: company.name,
+        description: company.description,
+        website: company.website,
+        avatar_url: await formatAvatarUrl(company.avatar_url, company.updated_at),
+        user_email: company.user?.email ?? "Unknown",
+        user_role: company.user?.role?.title ?? "Unknown",
+        user_status: company.user?.status ?? "active",
+        category: company.companyCategory?.title ?? "Uncategorized",
+        city: company.city?.name ?? "N/A",
+        address: company.address,
+        jobs_count: company._count.jobs,
+        created_at: company.created_at,
+        updated_at: company.updated_at,
+      })),
+    );
+
+    res.status(200).json({
+      companies: companiesData,
+      total: companiesData.length,
+    });
+  } catch (error) {
+    console.error("Get admin companies error:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    res
+      .status(500)
+      .json({ message: "Internal server error", error: errorMessage });
+  }
+};
+
+export const getAdminStatistics = async (_req: Request, res: Response) => {
+  try {
+    await prisma.$connect();
+
+    const [users, companies, jobs, applications, candidates] = await Promise.all([
+      prisma.user.findMany({
+        include: {
+          role: {
+            select: { title: true },
+          },
+        },
+      }),
+      prisma.company.count(),
+      prisma.job.findMany({
+        select: { status: true },
+      }),
+      prisma.application.findMany({
+        select: { status: true },
+      }),
+      prisma.candidate.count(),
+    ]);
+
+    // Count users by role
+    const usersByRole = {
+      admin: users.filter((u) => u.role?.title?.toLowerCase().includes("admin")).length,
+      recruiter: users.filter((u) => u.role?.title?.toLowerCase().includes("recruiter")).length,
+      candidate: users.filter((u) => u.role?.title?.toLowerCase().includes("candidate")).length,
+      total: users.length,
+    };
+
+    // Count users by status
+    const usersByStatus = {
+      active: users.filter((u) => u.status === "active").length,
+      suspended: users.filter((u) => u.status === "suspended").length,
+    };
+
+    // Count jobs by status
+    const jobsByStatus = {
+      open: jobs.filter((j) => j.status === "open").length,
+      paused: jobs.filter((j) => j.status === "paused").length,
+      closed: jobs.filter((j) => j.status === "closed").length,
+      expired: jobs.filter((j) => j.status === "expired").length,
+      total: jobs.length,
+    };
+
+    // Count applications by status
+    const applicationsByStatus = {
+      pending: applications.filter((a) => a.status === "pending").length,
+      reviewing: applications.filter((a) => a.status === "reviewing").length,
+      accepted: applications.filter((a) => a.status === "accepted").length,
+      rejected: applications.filter((a) => a.status === "rejected").length,
+      expired: applications.filter((a) => a.status === "expired").length,
+      total: applications.length,
+    };
+
+    res.status(200).json({
+      users: usersByRole,
+      userStatus: usersByStatus,
+      jobs: jobsByStatus,
+      applications: applicationsByStatus,
+      companies,
+      candidates,
+      totalAccounts: users.length,
+    });
+  } catch (error) {
+    console.error("Get admin statistics error:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
     res
       .status(500)
       .json({ message: "Internal server error", error: errorMessage });

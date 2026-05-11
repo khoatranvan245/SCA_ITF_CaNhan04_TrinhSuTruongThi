@@ -26,6 +26,8 @@ import RecruiterLayout from "./layouts/RecruiterLayout";
 import AdminLayout from "./layouts/AdminLayout";
 import AdminJob from "./pages/AdminJob";
 import AdminAccount from "./pages/AdminAccount";
+import AdminCompany from "./pages/AdminCompany";
+import AdminReports from "./pages/AdminReports";
 import AdminLogin from "./pages/AdminLogin";
 
 type StoredUser = {
@@ -233,11 +235,12 @@ const App = () => {
         <Route path="/admin-login" element={<AdminLoginRoute />} />
         <Route element={<AdminPrivateRoute />}>
           <Route element={<AdminLayout />}>
-            <Route path="/company-management" element={<AdminJob />} />
+            <Route path="/companies" element={<AdminCompany />} />
+            <Route path="/company-management" element={<AdminCompany />} />
             <Route path="/jobs" element={<AdminJob />} />
             <Route path="/accounts" element={<AdminAccount />} />
             <Route path="/account-management" element={<AdminAccount />} />
-            <Route path="/reports" element={<AdminJob />} />
+            <Route path="/reports" element={<AdminReports />} />
           </Route>
         </Route>
 
