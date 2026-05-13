@@ -75,6 +75,24 @@ function parsePositiveInteger(value: unknown): number | null {
   return null;
 }
 
+function buildApplicationDecisionNotification(
+  status: "accepted" | "rejected",
+  jobTitle: string,
+  companyName: string,
+) {
+  if (status === "accepted") {
+    return {
+      title: "Application Accepted",
+      message: `Good news! You have passed the application screening for the position of "${jobTitle}" at ${companyName}. Please check your email or messages regularly for further updates from the recruiter.`,
+    };
+  }
+
+  return {
+    title: "Application Declined",
+    message: `Your application for the position of "${jobTitle}" at ${companyName} has been declined. Thank you for your interest in joining the company.`,
+  };
+}
+
 function parseOptionalInteger(value: unknown): number | null {
   if (value === undefined || value === null || value === "") {
     return null;
@@ -863,6 +881,7 @@ export const markApplicationAsReviewing = async (
       select: {
         job_id: true,
         expiration_date: true,
+        company_id: true,
       },
     });
 
@@ -879,6 +898,8 @@ export const markApplicationAsReviewing = async (
       select: {
         application_id: true,
         status: true,
+        candidate_id: true,
+        job_id: true,
       },
     });
 
@@ -989,6 +1010,7 @@ export const updateApplicationDecision = async (
       select: {
         job_id: true,
         expiration_date: true,
+        company_id: true,
       },
     });
 
@@ -1005,6 +1027,8 @@ export const updateApplicationDecision = async (
       select: {
         application_id: true,
         status: true,
+        candidate_id: true,
+        job_id: true,
       },
     });
 
@@ -1027,13 +1051,53 @@ export const updateApplicationDecision = async (
       return;
     }
 
-    const updatedApplication = await prisma.application.update({
-      where: { application_id: application.application_id },
-      data: { status },
-      select: {
-        application_id: true,
-        status: true,
-      },
+    const [candidate, jobDetails, companyDetails] = await Promise.all([
+      prisma.candidate.findFirst({
+        where: { candidate_id: application.candidate_id },
+        select: { user_id: true },
+      }),
+      prisma.job.findUnique({
+        where: { job_id: application.job_id },
+        select: { title: true },
+      }),
+      prisma.company.findUnique({
+        where: { company_id: job.company_id },
+        select: { name: true },
+      }),
+    ]);
+
+    if (!candidate || !jobDetails || !companyDetails) {
+      res.status(404).json({ message: "Notification target not found" });
+      return;
+    }
+
+    const updatedApplication = await prisma.$transaction(async (transaction) => {
+      const savedApplication = await transaction.application.update({
+        where: { application_id: application.application_id },
+        data: { status },
+        select: {
+          application_id: true,
+          status: true,
+        },
+      });
+
+      if (application.status !== status) {
+        const notification = buildApplicationDecisionNotification(
+          status,
+          jobDetails.title,
+          companyDetails.name,
+        );
+
+        await transaction.notification.create({
+          data: {
+            user_id: candidate.user_id,
+            title: notification.title,
+            message: notification.message,
+          },
+        });
+      }
+
+      return savedApplication;
     });
 
     res.status(200).json({ application: updatedApplication });

@@ -32,9 +32,21 @@ model User {
   created_at    DateTime      @default(now())
   updated_at    DateTime      @updatedAt
 
-  role       Role        @relation(fields: [role_id], references: [role_id])
-  companies  Company[]
-  candidates Candidate[]
+  role          Role           @relation(fields: [role_id], references: [role_id])
+  companies     Company[]
+  candidates    Candidate[]
+  notifications Notification[]
+}
+
+model Notification {
+  notification_id Int      @id @default(autoincrement())
+  user_id         Int
+  title           String
+  message         String
+  is_read         Boolean  @default(false)
+  created_at      DateTime @default(now())
+
+  user User @relation(fields: [user_id], references: [user_id])
 }
 
 model Company {

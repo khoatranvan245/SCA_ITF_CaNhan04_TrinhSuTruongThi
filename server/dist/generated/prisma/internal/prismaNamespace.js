@@ -69,6 +69,7 @@ export const AnyNull = runtime.objectEnumValues.instances.AnyNull;
 export const ModelName = {
     Role: 'Role',
     User: 'User',
+    Notification: 'Notification',
     Company: 'Company',
     JobCategory: 'JobCategory',
     CompanyCategory: 'CompanyCategory',
@@ -80,8 +81,7 @@ export const ModelName = {
     Skill: 'Skill',
     JobSkill: 'JobSkill',
     CandidateSkill: 'CandidateSkill',
-    City: 'City',
-    Notification: 'Notification'
+    City: 'City'
 };
 /**
  * Enums
@@ -106,6 +106,14 @@ export const UserScalarFieldEnum = {
     status: 'status',
     created_at: 'created_at',
     updated_at: 'updated_at'
+};
+export const NotificationScalarFieldEnum = {
+    notification_id: 'notification_id',
+    user_id: 'user_id',
+    title: 'title',
+    message: 'message',
+    is_read: 'is_read',
+    created_at: 'created_at'
 };
 export const CompanyScalarFieldEnum = {
     company_id: 'company_id',
@@ -202,19 +210,6 @@ export const CityScalarFieldEnum = {
     city_id: 'city_id',
     name: 'name',
     created_at: 'created_at'
-};
-export const NotificationScalarFieldEnum = {
-    notification_id: 'notification_id',
-    user_id: 'user_id',
-    application_id: 'application_id',
-    type: 'type',
-    title: 'title',
-    message: 'message',
-    job_title: 'job_title',
-    company_name: 'company_name',
-    is_read: 'is_read',
-    created_at: 'created_at',
-    read_at: 'read_at'
 };
 export const SortOrder = {
     asc: 'asc',

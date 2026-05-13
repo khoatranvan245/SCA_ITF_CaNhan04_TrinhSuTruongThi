@@ -327,6 +327,61 @@ export const getCandidateApplications = async (req: Request, res: Response) => {
   }
 };
 
+export const getCandidateNotifications = async (
+  req: Request,
+  res: Response,
+) => {
+  try {
+    await prisma.$connect();
+
+    const userId = parseUserId(req.params.userId);
+    if (!userId) {
+      res.status(400).json({ message: "Invalid user id" });
+      return;
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { user_id: userId },
+      include: { role: true },
+    });
+
+    if (!user || user.role?.title?.toLowerCase() !== "candidate") {
+      res.status(403).json({ message: "Access denied" });
+      return;
+    }
+
+    const [notifications, unreadCount] = await Promise.all([
+      prisma.notification.findMany({
+        where: { user_id: userId },
+        orderBy: { created_at: "desc" },
+        select: {
+          notification_id: true,
+          title: true,
+          message: true,
+          is_read: true,
+          created_at: true,
+        },
+      }),
+      prisma.notification.count({
+        where: { user_id: userId, is_read: false },
+      }),
+    ]);
+
+    res.status(200).json({
+      notifications,
+      total: notifications.length,
+      unreadCount,
+    });
+  } catch (error) {
+    console.error("Get candidate notifications error:", error);
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
+    res
+      .status(500)
+      .json({ message: "Internal server error", error: errorMessage });
+  }
+};
+
 export const getCandidateProfile = async (req: Request, res: Response) => {
   try {
     await prisma.$connect();
